@@ -204,12 +204,18 @@ public:
         if (buffer.size() >= _acf_width * 2) {
           std::vector<double> acf = calculate_acf(buffer);
           
-          // Log each ACF point as a separate value
-          _rec->set_time_duration_secs("time", time_seconds);
+          // Create points for the ACF plot with lag as x and ACF as y
+          std::vector<rerun::Position2D> points;
           for (size_t lag = 0; lag < acf.size(); ++lag) {
-            rerun::Scalars scalar({static_cast<float>(acf[lag])});
-            _rec->log("acf/" + keypath + "/" + std::to_string(lag), scalar);
+            points.push_back({static_cast<float>(lag), static_cast<float>(acf[lag])});
           }
+          
+          // Log the points as a single series, using keypath as the identifier
+          _rec->log("acf_plot",
+            rerun::Points2D(points)
+              .with_colors({rerun::Color(0.0f, 0.0f, 1.0f)})  // blue color for the series
+              .with_labels({keypath})  // use keypath as series name
+          );
         }
       }
     }
