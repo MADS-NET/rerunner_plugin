@@ -1,8 +1,8 @@
-# rerun plugin for MADS
+# rerunner plugin for MADS
 
-This is a Sink plugin for [MADS](https://github.com/MADS-NET/MADS). 
+This is a Sink plugin for [MADS](https://github.com/MADS-NET/MADS) that uses [Rerun](https://www.rerun.io/) to visualize time series data.
 
-<provide here some introductory info>
+The plugin allows you to log time series data to Rerun, where it can be visualized as time series. It supports automatic calculation of the autocorrelation function (ACF) for specified keypaths, making it easier to analyze the temporal dependencies in your data.
 
 *Required MADS version: 1.3.5.*
 
@@ -34,26 +34,53 @@ cmake --build build --config Release
 cmake --install build --config Release
 ```
 
+## Requirements
+
+You need to install and run an instance of the Rerun viewer. You can download it from [here](https://rerun.io/docs/getting-started/installing-viewer#installing-the-viewer).
+
+
+## Concepts
+
+The plugin plots on Rerun the data received from different topics accoring to a list of *keypaths*. Each keypath is a dot-separated string that specifies the path to a particular value in the input JSON data. For example, if the input JSON data is: 
+
+```json
+{
+  "sensor": {
+    "temperature": 22.5,
+    "humidity": 60
+  }
+}
+```
+
+the keypaths to access the temperature and humidity values would be `sensor.temperature` and `sensor.humidity`, respectively.
+
+Note that to each keypath is prepended the topic name, so if the topic is `replay`, the full keypaths would be `replay.sensor.temperature` and `replay.sensor.humidity`.
+
+The plugin uses the `timecode` field in the input data to determine the time at which each data point was recorded. If the `timecode` field is not present, the plugin uses the elapsed time since the start of the plugin as the time for each data point. If you want to use a different field name for the timecode, you can specify it in the INI settings (see below).
+
+At the moment, the plugin also supports the calculation of the autocorrelation function (ACF) for specified keypaths. The ACF is a measure of how the values of a time series are correlated with themselves at different time lags. This can be useful for identifying patterns and periodicities in the data, as well to identify the minimum timestep (or maximum frequency) to sample the data. To add the ACF for a keypath, simply include it in the `acf_keypaths` list in the INI settings (see below). The width of the ACF window can be specified using the `acf_width` setting.
+
 
 ## INI settings
 
 The plugin supports the following settings in the INI file:
 
 ```ini
-[rerun]
-# Describe the settings available to the plugin
+[rerun_play]
+sub_topic = ["replay"]. # Topics to subscribe to (array of strings)
+time = "timecode"       # Name of the timecode column in the input data (string)
+# List of keypaths for time series
+keypaths = ["replay.sensor.temperature", "replay.sensor.humidity"]
+# List of keypaths to build ACF for
+acf_keypaths = ["replay.sensor.temperature", "replay.sensor.humidity"]
+acf_width = 200         # Width of the ACF window (integer)
 ```
 
 All settings are optional; if omitted, the default values are used.
 
 
-## Datastore
-The plugin supports a datastore file `rerun.json` created in a temporary directory for persisting data between runs. Look at the `Datastore` class for more information on how to use it.
+## Example data
 
-
-
-## Executable demo
-
-<Explain what happens if the test executable is run>
+The file `example.csv` contains example data that can be used to test the plugin. You can replay this data using the `replay_plugin` plugin in MADS (see <https://github.com/MADS-NET/replay_plugin>), and visualize it using the `rerun_play` plugin.
 
 ---

@@ -52,7 +52,7 @@ using json = nlohmann::json;
 #include <deque>
 #include <unordered_map>
 
-class RerunPlugin : public Sink<json> {
+class RerunnerPlugin : public Sink<json> {
 private:
   std::vector<std::string> _keypaths;
   std::vector<std::string> _acf_keypaths;
@@ -165,7 +165,7 @@ private:
   }
 
 public:
-  RerunPlugin() {
+  RerunnerPlugin() {
     _start_time = std::chrono::steady_clock::now();
     _rec = std::make_shared<rerun::RecordingStream>("MADS Data");
     _rec->spawn().exit_on_failure();
@@ -176,15 +176,29 @@ public:
 
   // Implement the actual functionality here
   return_type load_data(json const &input, string topic = "") override {
+    if (topic.empty()) {
+      _error = "No topic specified in plugin load_data()";
+      return return_type::error;
+    }
+
     auto now = std::chrono::steady_clock::now();
-    double time_seconds = std::chrono::duration<double>(now - _start_time).count();
-    
+    double time_seconds;
+    // get the timecode from the input json if available, otherwise use elapsed time
+    if (!_params["time"].empty() && input.contains(_params["time"])) {
+      time_seconds = input[_params["time"]].get<double>();
+    } else {
+      time_seconds = std::chrono::duration<double>(now - _start_time).count();
+    }
+
+    // embed the input json within a parent object named as the topic
+    json data = json{{topic, std::move(input)}};
+
     // Set the current time for this batch of data
     _rec->set_time_duration_secs("time", time_seconds);
     
     // Extract values for each keypath and send to rerun
     for (const auto& keypath : _keypaths) {
-      if (auto value = get_numeric_value(input, keypath)) {
+      if (auto value = get_numeric_value(data, keypath)) {
         rerun::Scalars scalar({static_cast<float>(*value)});
         _rec->log("data/" + keypath, scalar);
       }
@@ -192,7 +206,7 @@ public:
 
     // Process ACF keypaths
     for (const auto& keypath : _acf_keypaths) {
-      if (auto value = get_numeric_value(input, keypath)) {
+      if (auto value = get_numeric_value(data, keypath)) {
         // Add value to circular buffer
         auto& buffer = _signal_buffers[keypath];
         buffer.push_back(*value);
@@ -211,11 +225,13 @@ public:
           }
           
           // Log the points as a single series, using keypath as the identifier
-          _rec->log("acf_plot",
-            rerun::Points2D(points)
-              .with_colors({rerun::Color(0.0f, 0.0f, 1.0f)})  // blue color for the series
-              .with_labels({keypath})  // use keypath as series name
-          );
+          // _rec->log("acf_plot",
+          //   rerun::Points2D(points)
+          //     .with_colors({rerun::Color(0.0f, 0.0f, 1.0f)})  // blue color for the series
+          //     .with_labels({keypath})  // use keypath as series name
+          // );
+          _rec->log("acf_plot/" + keypath, 
+            rerun::BarChart::f64(acf));
         }
       }
     }
@@ -232,12 +248,10 @@ public:
     _params["keypaths"] = json::array();  // empty array by default
     _params["acf_keypaths"] = json::array();  // empty array by default
     _params["acf_width"] = 100;  // default ACF width
+    _params["time"] = "timecode";
     
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(*(json *)params);
-    
-    // prepare the datastore. Change its name if needed, .json ext is added if missing
-    _datastore.prepare(kind());
 
     // Load the keypaths configuration
     _keypaths.clear();
@@ -275,16 +289,14 @@ public:
     // by the agent
     
     return {
-      {"Datastore", _datastore.path()}
+      {"ACF Width", std::to_string(_acf_width)},
+      {"ACF Keypaths", _acf_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
+      {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
+      {"Time column", _params["time"].empty() ? "timecode" : _params["time"].get<std::string>()}
     };
     
   };
 
-private:
-  // Define the fields that are used to store internal resources
-  
-  Datastore _datastore;
-  
 };
 
 
@@ -298,7 +310,7 @@ private:
                 |___/                                      
 Enable the class as plugin 
 */
-INSTALL_SINK_DRIVER(RerunPlugin, json)
+INSTALL_SINK_DRIVER(RerunnerPlugin, json)
 
 
 /*
@@ -311,7 +323,7 @@ INSTALL_SINK_DRIVER(RerunPlugin, json)
 For testing purposes, when directly executing the plugin
 */
 int main(int argc, char const *argv[]) {
-  RerunPlugin plugin;
+  RerunnerPlugin plugin;
   json input, params;
   
   // Set example values to params

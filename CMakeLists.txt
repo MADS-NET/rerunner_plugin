@@ -125,8 +125,8 @@ endif()
 include_directories(${json_SOURCE_DIR}/include)
 
 # These plugins are always build and use for testing
-add_plugin(rerun_play LIBS rerun_sdk)
-add_dependencies(rerun_play rerun_sdk)
+add_plugin(rerunner LIBS rerun_sdk)
+add_dependencies(rerunner rerun_sdk)
 
 
 # INSTALL ######################################################################
