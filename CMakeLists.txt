@@ -34,6 +34,7 @@ set(SRC_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
 if(UNIX AND NOT APPLE)
   set(LINUX TRUE)
+  add_compile_options(-fPIC)
 endif()
 
 # DEPENDENCIES #################################################################
@@ -57,8 +58,8 @@ include(FetchContent)
 
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk 
-    URL https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  URL "https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip"
 )
 FetchContent_MakeAvailable(pugg json rerun_sdk)
 
@@ -127,6 +128,7 @@ include_directories(${json_SOURCE_DIR}/include)
 # These plugins are always build and use for testing
 add_plugin(rerunner LIBS rerun_sdk)
 add_dependencies(rerunner rerun_sdk)
+
 
 
 # INSTALL ######################################################################
