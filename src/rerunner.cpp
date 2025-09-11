@@ -199,7 +199,7 @@ public:
     // Extract values for each keypath and send to rerun
     for (const auto& keypath : _keypaths) {
       if (auto value = get_numeric_value(data, keypath)) {
-        rerun::Scalars scalar({static_cast<float>(*value)});
+        rerun::Scalars scalar(static_cast<float>(*value));
         _rec->log("data/" + keypath, scalar);
       }
     }
