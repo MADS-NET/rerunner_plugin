@@ -151,8 +151,13 @@ private:
 
   // Helper function to safely get a value from JSON using dot notation
   std::optional<double> get_numeric_value(const json& j, const std::string& dot_path) {
+    nlohmann::json::json_pointer ptr;
+    if (dot_path[0] == '/') {
+      ptr = nlohmann::json::json_pointer(dot_path);
+    } else {
+      ptr = dot_to_pointer(dot_path);
+    }
     try {
-      auto ptr = dot_to_pointer(dot_path);
       const auto& value = j[ptr];
       
       if (value.is_number()) {

@@ -60,6 +60,8 @@ The plugin uses the `timecode` field in the input data to determine the time at 
 
 At the moment, the plugin also supports the calculation of the autocorrelation function (ACF) for specified keypaths. The ACF is a measure of how the values of a time series are correlated with themselves at different time lags. This can be useful for identifying patterns and periodicities in the data, as well to identify the minimum timestep (or maximum frequency) to sample the data. To add the ACF for a keypath, simply include it in the `acf_keypaths` list in the INI settings (see below). The width of the ACF window can be specified using the `acf_width` setting.
 
+An alternative keypaths syntax uses slashes as separators. For example, `IMU.accel[0].x` can also be written as `/IMU/accel/0/x`. Notice the **mandatory leading slash**: only (and all) keypaths starting with `/` are parsed according to this syntax.
+
 
 ## INI settings
 
