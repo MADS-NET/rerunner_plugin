@@ -34,6 +34,7 @@
 #include <optional>
 #include <memory>
 #include <vector>
+#include "moving_window_stats.hpp"
 
 // other includes as needed here
 
@@ -56,59 +57,14 @@ class RerunnerPlugin : public Sink<json> {
 private:
   std::vector<std::string> _keypaths;
   std::vector<std::string> _acf_keypaths;
+  std::vector<std::string> _fft_keypaths;
+  MovingWindowStats _stats;
   size_t _acf_width = 100;  // default width
   size_t _window_size = 1000;  // Store 10x ACF width for better statistics
-  
-  // Circular buffers for ACF calculation, one per keypath
-  std::unordered_map<std::string, std::deque<double>> _signal_buffers;
   
   std::chrono::steady_clock::time_point _start_time;
   std::shared_ptr<rerun::RecordingStream> _rec;
 
-  // Helper function to calculate ACF for a given signal buffer
-  std::vector<double> calculate_acf(const std::deque<double>& buffer) {
-    std::vector<double> acf(_acf_width, 0.0);
-    if (buffer.size() < _acf_width * 2) {
-      return acf;  // Return zeros if not enough data
-    }
-
-    // Calculate mean
-    double mean = 0.0;
-    for (const auto& val : buffer) {
-      mean += val;
-    }
-    mean /= buffer.size();
-
-    // Calculate variance for normalization
-    double variance = 0.0;
-    for (const auto& val : buffer) {
-      double diff = val - mean;
-      variance += diff * diff;
-    }
-    variance /= buffer.size();
-    
-    if (variance < 1e-10) {
-      return acf;  // Return zeros if signal is constant
-    }
-
-    // Calculate ACF for each lag
-    for (size_t lag = 0; lag < _acf_width; ++lag) {
-      double sum = 0.0;
-      size_t n = 0;
-      
-      // Use the most recent window_size samples
-      for (size_t i = lag; i < buffer.size(); ++i) {
-        double x1 = buffer[i] - mean;
-        double x2 = buffer[i - lag] - mean;
-        sum += x1 * x2;
-        ++n;
-      }
-      
-      acf[lag] = sum / (n * variance);  // Normalized ACF
-    }
-
-    return acf;
-  }
 
   // Helper function to convert dot notation path to JSON value
   json::json_pointer dot_to_pointer(const std::string& dot_path) {
@@ -181,6 +137,10 @@ public:
 
   // Implement the actual functionality here
   return_type load_data(json const &input, string topic = "") override {
+    static double prev_time = 0;
+    static double mean_dt = 0;
+    static size_t n = 0;
+    double dt = 0;
     if (topic.empty()) {
       _error = "No topic specified in plugin load_data()";
       return return_type::error;
@@ -195,6 +155,15 @@ public:
       time_seconds = std::chrono::duration<double>(now - _start_time).count();
     }
 
+    dt = time_seconds - prev_time;
+    if (n > 0) {
+      mean_dt = ((n - 1) * mean_dt + dt) / (double)n;
+      _rec->log("stats/timestep", rerun::Scalars(dt));
+      _rec->log("stats/mean_timestep", rerun::Scalars(mean_dt));
+    } 
+    prev_time = time_seconds;
+    n++;
+
     // embed the input json within a parent object named as the topic
     json data = json{{topic, std::move(input)}};
 
@@ -204,40 +173,42 @@ public:
     // Extract values for each keypath and send to rerun
     for (const auto& keypath : _keypaths) {
       if (auto value = get_numeric_value(data, keypath)) {
+        _stats.add(keypath, value.value_or(0));
         rerun::Scalars scalar(static_cast<float>(*value));
         _rec->log("data/" + keypath, scalar);
+        _rec->log("stats/mean/" + keypath, rerun::Scalars(_stats.mean(keypath)));
+        _rec->log("stats/stdev/" + keypath, rerun::Scalars(_stats.stdev(keypath)));
+        _rec->log("stats/std_uncertainty/" + keypath, rerun::Scalars(_stats.st_uncertainty(keypath)));
       }
     }
 
     // Process ACF keypaths
     for (const auto& keypath : _acf_keypaths) {
-      if (auto value = get_numeric_value(data, keypath)) {
-        // Add value to circular buffer
-        auto& buffer = _signal_buffers[keypath];
-        buffer.push_back(*value);
-        if (buffer.size() > _window_size) {
-          buffer.pop_front();
-        }
+      if (_stats.is_full(keypath)) {
+        _rec->log("acf_plot/" + keypath, 
+            rerun::BarChart::f64(_stats.acf(keypath)));
+      }
+    }
 
-        // Calculate and plot ACF if we have enough data
-        if (buffer.size() >= _acf_width * 2) {
-          std::vector<double> acf = calculate_acf(buffer);
-          
-          // Create points for the ACF plot with lag as x and ACF as y
-          std::vector<rerun::Position2D> points;
-          for (size_t lag = 0; lag < acf.size(); ++lag) {
-            points.push_back({static_cast<float>(lag), static_cast<float>(acf[lag])});
-          }
-          
-          // Log the points as a single series, using keypath as the identifier
-          // _rec->log("acf_plot",
-          //   rerun::Points2D(points)
-          //     .with_colors({rerun::Color(0.0f, 0.0f, 1.0f)})  // blue color for the series
-          //     .with_labels({keypath})  // use keypath as series name
-          // );
-          _rec->log("acf_plot/" + keypath, 
-            rerun::BarChart::f64(acf));
-        }
+    // Process FFT keypaths
+    #ifdef WITH_ABSCISSA
+    auto abscissa = vector<double>();
+    if (!_fft_keypaths.empty()) {
+      for (size_t i = 0; i < _params["window_size"].get<size_t>() / 2; i++) {
+        abscissa[i] = i * 1 / mean_dt * 2;
+      }
+    }
+    auto abscissa_data = rerun::TensorData(rerun::Collection{abscissa.size()}, abscissa);
+    #endif
+    for (const auto& keypath : _fft_keypaths) {
+      if (_stats.is_full(keypath)) {
+        _rec->log(
+          "fft_plot/" + keypath, 
+          rerun::BarChart::f64(_stats.fft(keypath))
+          #ifdef WITH_ABSCISSA
+          .with_abscissa(abscissa_data)
+          #endif
+        );
       }
     }
     
@@ -252,11 +223,14 @@ public:
     // provide sensible defaults for the parameters
     _params["keypaths"] = json::array();  // empty array by default
     _params["acf_keypaths"] = json::array();  // empty array by default
-    _params["acf_width"] = 100;  // default ACF width
+    _params["fft_keypaths"] = json::array();  // empty array by default
+    _params["window_size"] = 100;  // default ACF width
     _params["time"] = "timecode";
     
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(*(json *)params);
+
+    _stats.reset(_params["window_size"]);
 
     // Load the keypaths configuration
     _keypaths.clear();
@@ -275,14 +249,26 @@ public:
         if (path.is_string()) {
           _acf_keypaths.push_back(path.get<std::string>());
           // Initialize buffer for this keypath
-          _signal_buffers[path.get<std::string>()];
+          // _signal_buffers[path.get<std::string>()];
+        }
+      }
+    }
+
+    // Load FFT configuration
+    _fft_keypaths.clear();
+    if (_params.contains("fft_keypaths") && _params["fft_keypaths"].is_array()) {
+      for (const auto& path : _params["fft_keypaths"]) {
+        if (path.is_string()) {
+          _fft_keypaths.push_back(path.get<std::string>());
+          // Initialize buffer for this keypath
+          // _signal_buffers[path.get<std::string>()];
         }
       }
     }
 
     // Update ACF width if specified
-    if (_params.contains("acf_width") && _params["acf_width"].is_number()) {
-      _acf_width = _params["acf_width"].get<size_t>();
+    if (_params.contains("window_size") && _params["window_size"].is_number()) {
+      _acf_width = _params["window_size"].get<size_t>();
       _window_size = _acf_width * 10;  // Maintain 10x buffer size
     }
   }
@@ -294,6 +280,7 @@ public:
     // by the agent
     
     return {
+      {"Rerun version", rerun::version_string()},
       {"ACF Width", std::to_string(_acf_width)},
       {"ACF Keypaths", _acf_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
       {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},

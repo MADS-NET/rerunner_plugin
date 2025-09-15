@@ -52,15 +52,23 @@ The plugin plots on Rerun the data received from different topics accoring to a 
 }
 ```
 
-the keypaths to access the temperature and humidity values would be `sensor.temperature` and `sensor.humidity`, respectively.
+the keypaths to access the temperature and humidity values would be `/sensor/temperature` and `/sensor/humidity`, respectively.
 
-Note that to each keypath is prepended the topic name, so if the topic is `replay`, the full keypaths would be `replay.sensor.temperature` and `replay.sensor.humidity`.
+Note that to each keypath is prepended the topic name, so if the topic is `replay`, the full keypaths would be `/replay/sensor/temperature` and `/replay/sensor/humidity`. Notice the **mandatory leading slash**: only (and all) keypaths starting with `/` are parsed according to this syntax.
 
 The plugin uses the `timecode` field in the input data to determine the time at which each data point was recorded. If the `timecode` field is not present, the plugin uses the elapsed time since the start of the plugin as the time for each data point. If you want to use a different field name for the timecode, you can specify it in the INI settings (see below).
 
-At the moment, the plugin also supports the calculation of the autocorrelation function (ACF) for specified keypaths. The ACF is a measure of how the values of a time series are correlated with themselves at different time lags. This can be useful for identifying patterns and periodicities in the data, as well to identify the minimum timestep (or maximum frequency) to sample the data. To add the ACF for a keypath, simply include it in the `acf_keypaths` list in the INI settings (see below). The width of the ACF window can be specified using the `acf_width` setting.
+At the moment, the plugin also supports the calculation of the autocorrelation function (ACF) and the FFT spectrum for specified keypaths. The ACF is a measure of how the values of a time series are correlated with themselves at different time lags. This can be useful for identifying patterns and periodicities in the data, as well to identify the minimum timestep (or maximum frequency) to sample the data. To add the ACF for a keypath, simply include it in the `acf_keypaths` list in the INI settings (see below). To add the FFT, include the `fft_keypaths` list. The width of the ACF and FFT windows can be specified using the `window_size` setting.
 
-An alternative keypaths syntax uses slashes as separators. For example, `IMU.accel[0].x` can also be written as `/IMU/accel/0/x`. Notice the **mandatory leading slash**: only (and all) keypaths starting with `/` are parsed according to this syntax.
+An alternative keypaths syntax uses dots as separators. For example, `/IMU/accel/0/x` can also be written as `IMU.accel[0].x`. This syntax is for backward portability, but the slash syntax is to be preferred, since it maps to a proper hierarchy on Rerun.
+
+Note that the ACF bar chart has a **lag number** on abscissa, i.e. each bar represents a single lag. The FFT bar chart, conversely, has a frequency step on the abscissa, so that if the window has 50 samples, the FFT has 25 bars spanning the frequencies from 0 to 1/(2*DT), being DT the time duration of the window. The next release for Rerun (after v0.24.1) will allow to explicitly set the abscissa scale on bar charts.
+
+With Rerun versions supporting the abscissa (method `rerun::BarChart::with_abscissa()`), you can enable it with:
+
+```bash
+cmake -Bbuild -DWITH_ABSCISSA:BOOL=FALSE
+```
 
 
 ## INI settings
@@ -72,10 +80,11 @@ The plugin supports the following settings in the INI file:
 sub_topic = ["replay"]. # Topics to subscribe to (array of strings)
 time = "timecode"       # Name of the timecode column in the input data (string)
 # List of keypaths for time series
-keypaths = ["replay.sensor.temperature", "replay.sensor.humidity"]
+keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
 # List of keypaths to build ACF for
-acf_keypaths = ["replay.sensor.temperature", "replay.sensor.humidity"]
-acf_width = 200         # Width of the ACF window (integer)
+acf_keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
+fft_keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
+window_size  = 200         # Width of the ACF and FFT window (integer)
 ```
 
 All settings are optional; if omitted, the default values are used.

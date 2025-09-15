@@ -15,7 +15,7 @@ project(rerun VERSION 1.3.5 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT) 
   set(CMAKE_INSTALL_PREFIX "/Users/p4010/usr/local/lib" CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
 endif()
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
@@ -26,6 +26,8 @@ if(PLUGIN_SUFFIX STREQUAL "")
 else()
   message(STATUS "PLUGIN_SUFFIX set to: ${PLUGIN_SUFFIX}")
 endif()
+
+set(WITH_ABSCISSA FALSE CACHE BOOL "Enable abscissa scale on bar charts (requires rerun_sdk > 0.24.1)")
 
 # PROJECT SETTINGS #############################################################
 set(CMAKE_CXX_STANDARD 17)
@@ -96,7 +98,7 @@ macro(add_plugin name)
     set(${name}_EXEC ${name}.plugin)
   else()
     add_library(${name} SHARED ${SRC_DIR}/${name}.cpp ${plugin_SRCS})
-    add_executable(${name}_main ${SRC_DIR}/${name}.cpp ${plugin_SRCS})
+    add_executable(${name}_main ${SRC_DIR}/${name}.cpp${plugin_SRCS})
     target_link_libraries(${name}_main PRIVATE pugg ${plugin_LIBS})
     set_target_properties(${name}_main PROPERTIES OUTPUT_NAME ${name})
     set(${name}_EXEC ${name})
@@ -126,8 +128,12 @@ endif()
 include_directories(${json_SOURCE_DIR}/include)
 
 # These plugins are always build and use for testing
-add_plugin(rerunner LIBS rerun_sdk)
+add_plugin(rerunner LIBS rerun_sdk SRCS ${SRC_DIR}/moving_window_stats.cpp)
 add_dependencies(rerunner rerun_sdk)
+if(WITH_ABSCISSA)
+  target_compile_definitions(rerunner PUBLIC WITH_ABSCISSA)
+endif()
+
 
 
 
