@@ -2,6 +2,8 @@
 #include <map>
 #include <math.h>
 #include <vector>
+#include <unordered_map>
+#include <string>
 
 class MovingWindowStats {
 public:
