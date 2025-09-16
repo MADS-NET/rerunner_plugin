@@ -34,6 +34,7 @@
 #include <optional>
 #include <memory>
 #include <vector>
+#include <filesystem>
 #include "moving_window_stats.hpp"
 
 // other includes as needed here
@@ -60,6 +61,7 @@ private:
   std::vector<std::string> _fft_keypaths;
   MovingWindowStats _stats;
   size_t _window_size = 1000;  // Store 10x ACF width for better statistics
+  filesystem::path _blueprint;
   
   std::chrono::steady_clock::time_point _start_time;
   std::shared_ptr<rerun::RecordingStream> _rec;
@@ -225,11 +227,19 @@ public:
     _params["fft_keypaths"] = json::array();  // empty array by default
     _params["window_size"] = 100;  // default ACF width
     _params["time"] = "timecode";
+    _params["blueprint"] = "";
     
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(*(json *)params);
 
     _stats.reset(_params["window_size"]);
+
+    _blueprint = _params["blueprint"].get<string>();
+    if (filesystem::exists(_blueprint)) {
+      _rec->log_file_from_path(_blueprint);
+    } else if (!_blueprint.empty()) {
+      _blueprint = _params["blueprint"].get<string>() + " (not found)";
+    }
 
     // Load the keypaths configuration
     _keypaths.clear();
@@ -283,7 +293,8 @@ public:
       {"ACF Keypaths", _acf_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
       {"FFT Keypaths", _fft_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
       {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
-      {"Time column", _params["time"].empty() ? "timecode" : _params["time"].get<std::string>()}
+      {"Time column", _params["time"].empty() ? "timecode" : _params["time"].get<std::string>()},
+      {"Blueprint", (_blueprint.empty() ? "None" : _blueprint)}
     };
     
   };

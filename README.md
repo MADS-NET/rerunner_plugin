@@ -70,6 +70,10 @@ With Rerun versions supporting the abscissa (method `rerun::BarChart::with_absci
 cmake -Bbuild -DWITH_ABSCISSA:BOOL=FALSE
 ```
 
+## Blueprints
+
+Rerun viewer supports **blueprints**: those are files describing the layout of panels and controls in the viewer. You can configure the layout to your liking, then save the corresponding blueprint (from the menu with the Rerun logo on the window top left corner, select *save blueprint...*). Then add a `blueprint` key to the INI file (see below) pointing to the `.rbl` file.
+
 
 ## INI settings
 
@@ -84,7 +88,8 @@ keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
 # List of keypaths to build ACF for
 acf_keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
 fft_keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
-window_size  = 200         # Width of the ACF and FFT window (integer)
+window_size  = 200          # Width of the ACF and FFT window (integer)
+blueprint = "blueprint.rbl" # local or absolute path to a valid blueprint
 ```
 
 All settings are optional; if omitted, the default values are used.
