@@ -59,7 +59,6 @@ private:
   std::vector<std::string> _acf_keypaths;
   std::vector<std::string> _fft_keypaths;
   MovingWindowStats _stats;
-  size_t _acf_width = 100;  // default width
   size_t _window_size = 1000;  // Store 10x ACF width for better statistics
   
   std::chrono::steady_clock::time_point _start_time;
@@ -268,8 +267,7 @@ public:
 
     // Update ACF width if specified
     if (_params.contains("window_size") && _params["window_size"].is_number()) {
-      _acf_width = _params["window_size"].get<size_t>();
-      _window_size = _acf_width * 10;  // Maintain 10x buffer size
+      _window_size = _params["window_size"].get<size_t>();
     }
   }
 
@@ -281,8 +279,9 @@ public:
     
     return {
       {"Rerun version", rerun::version_string()},
-      {"ACF Width", std::to_string(_acf_width)},
+      {"Window size", std::to_string(_window_size)},
       {"ACF Keypaths", _acf_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
+      {"FFT Keypaths", _fft_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
       {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
       {"Time column", _params["time"].empty() ? "timecode" : _params["time"].get<std::string>()}
     };
