@@ -61,7 +61,7 @@ include(FetchContent)
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk 
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-  URL "https://github.com/rerun-io/rerun/releases/latest/download/rerun_cpp_sdk.zip"
+  URL "https://github.com/rerun-io/rerun/releases/download/0.25.0/rerun_cpp_sdk.zip"
 )
 FetchContent_MakeAvailable(pugg json rerun_sdk)
 
