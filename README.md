@@ -4,7 +4,7 @@ This is a Sink plugin for [MADS](https://github.com/MADS-NET/MADS) that uses [Re
 
 The plugin allows you to log time series data to Rerun, where it can be visualized as time series. It supports automatic calculation of the autocorrelation function (ACF) for specified keypaths, making it easier to analyze the temporal dependencies in your data.
 
-*Required MADS version: 1.3.5.*
+*Required MADS version: 1.3.5 and rerun-sdk version 0.25.0*
 
 
 ## Supported platforms
