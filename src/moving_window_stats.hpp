@@ -23,7 +23,7 @@ public:
   // append a new value to a given signal according to key; calculate acf and
   // fft in _signal_stats only if the fuffer is full, calculate _mean and _stdev
   // regardless the number of elements in the buffer
-  void add(std::string const key, double value);
+  bool add(std::string const key, double value);
 
   bool is_full(std::string const &key) { return _signal_buffers[key].size() >= _size; }
 

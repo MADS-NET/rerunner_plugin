@@ -4,7 +4,7 @@
 #include <iostream>
 #include <iomanip>
 
-void MovingWindowStats::add(std::string const key, double value) {
+bool MovingWindowStats::add(std::string const key, double value) {
     auto &buffer = _signal_buffers[key];
     auto &sum = _sum[key];
     auto &sum_sq = _sum_sq[key];
@@ -35,6 +35,9 @@ void MovingWindowStats::add(std::string const key, double value) {
     if (buffer.size() == _size) {
         calculate_acf(key);
         calculate_fft(key);
+        return true;
+    } else {
+        return false;
     }
 }
 

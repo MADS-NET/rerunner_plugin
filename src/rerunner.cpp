@@ -27,11 +27,13 @@
 #include <sink.hpp>
 
 #include "moving_window_stats.hpp"
+#include <BS_thread_pool.hpp>
 #include <array>
 #include <chrono>
 #include <datastore.hpp>
 #include <deque>
 #include <filesystem>
+#include <future>
 #include <memory>
 #include <optional>
 #include <rerun.hpp>
@@ -65,6 +67,9 @@ private:
 
   std::chrono::steady_clock::time_point _start_time;
   std::shared_ptr<rerun::RecordingStream> _rec;
+
+  BS::thread_pool<BS::tp::none> _pool;
+  vector<future<bool>> _futures;
 
   // Helper function to convert dot notation path to JSON value
   json::json_pointer dot_to_pointer(const std::string &dot_path) {
@@ -170,16 +175,37 @@ public:
     _rec->set_time_duration_secs("time", time_seconds);
 
     // Extract values for each keypath and send to rerun
-    for (const auto &keypath : _keypaths) {
-      if (auto value = get_numeric_value(data, keypath)) {
-        _stats.add(keypath, value.value_or(0));
-        _rec->log("data/" + keypath, rerun::Scalars(*value));
+    if (_params["parallelize"].get<bool>()) {
+      for (const auto &keypath : _keypaths) {
+        if (auto value = get_numeric_value(data, keypath)) {
+          _rec->log("data/" + keypath, rerun::Scalars(*value));
+          _futures.push_back(_pool.submit_task(
+              [&] { return _stats.add(keypath, value.value_or(0)); }));
+        }
+      }
+      for (const auto &f : _futures) {
+        f.wait();
+      }
+      for (const auto &keypath : _keypaths) {
         _rec->log("stats/mean/" + keypath,
                   rerun::Scalars(_stats.mean(keypath)));
         _rec->log("stats/stdev/" + keypath,
                   rerun::Scalars(_stats.stdev(keypath)));
         _rec->log("stats/std_uncertainty/" + keypath,
                   rerun::Scalars(_stats.st_uncertainty(keypath)));
+      }
+    } else {
+      for (const auto &keypath : _keypaths) {
+        if (auto value = get_numeric_value(data, keypath)) {
+          _stats.add(keypath, value.value_or(0));
+          _rec->log("data/" + keypath, rerun::Scalars(*value));
+          _rec->log("stats/mean/" + keypath,
+                    rerun::Scalars(_stats.mean(keypath)));
+          _rec->log("stats/stdev/" + keypath,
+                    rerun::Scalars(_stats.stdev(keypath)));
+          _rec->log("stats/std_uncertainty/" + keypath,
+                    rerun::Scalars(_stats.st_uncertainty(keypath)));
+        }
       }
     }
 
@@ -230,6 +256,7 @@ public:
     _params["window_size"] = 100;            // default ACF width
     _params["time"] = "timecode";
     _params["blueprint"] = "";
+    _params["parallelize"] = true;
 
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(*(json *)params);
@@ -298,10 +325,12 @@ public:
             {"FFT Keypaths",
              _fft_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
             {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
-            {"Time column", _params["time"].empty()
+            {"Time column", _params["time"].get<string>().empty()
                                 ? "timecode"
                                 : _params["time"].get<std::string>()},
-            {"Blueprint", (_blueprint.empty() ? "None" : _blueprint)}};
+            {"Blueprint", (_blueprint.empty() ? "None" : _blueprint)},
+            {"Parallelize", _params["parallelize"].get<bool>() ? to_string(_pool.get_thread_count()) + " threads" : "NO"}
+          };
   };
 };
 

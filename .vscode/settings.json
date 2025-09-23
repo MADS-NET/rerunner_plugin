@@ -67,6 +67,7 @@
     "unordered_set": "cpp",
     "valarray": "cpp",
     "variant": "cpp",
-    "algorithm": "cpp"
+    "algorithm": "cpp",
+    "__assert": "cpp"
   }
 }

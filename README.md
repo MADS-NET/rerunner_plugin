@@ -90,6 +90,7 @@ acf_keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
 fft_keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
 window_size  = 200          # Width of the ACF and FFT window (integer)
 blueprint = "blueprint.rbl" # local or absolute path to a valid blueprint
+parallelize = true # Runs FFT and ACF computations in parallel
 ```
 
 All settings are optional; if omitted, the default values are used.

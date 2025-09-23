@@ -56,14 +56,18 @@ FetchContent_Declare(json
   GIT_SHALLOW    TRUE
 )
 
-include(FetchContent)
+FetchContent_Declare(threadpool
+  GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
+  GIT_TAG v5.0.0
+  GIT_SHALLOW TRUE
+)
 
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk 
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   URL "https://github.com/rerun-io/rerun/releases/download/0.25.0/rerun_cpp_sdk.zip"
 )
-FetchContent_MakeAvailable(pugg json rerun_sdk)
+FetchContent_MakeAvailable(pugg json rerun_sdk threadpool)
 
 FetchContent_GetProperties(rerun_sdk)
 if(NOT rerun_sdk_POPULATED)
@@ -83,6 +87,7 @@ FetchContent_Populate(plugin
 include_directories(
   ${plugin_SOURCE_DIR}/src
   ${rerun_sdk_SOURCE_DIR}/src
+  ${threadpool_SOURCE_DIR}/include
 )
 
 # MACROS #######################################################################
