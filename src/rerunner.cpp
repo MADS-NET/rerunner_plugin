@@ -173,8 +173,7 @@ public:
     for (const auto &keypath : _keypaths) {
       if (auto value = get_numeric_value(data, keypath)) {
         _stats.add(keypath, value.value_or(0));
-        rerun::Scalars scalar(static_cast<float>(*value));
-        _rec->log("data/" + keypath, scalar);
+        _rec->log("data/" + keypath, rerun::Scalars(*value));
         _rec->log("stats/mean/" + keypath,
                   rerun::Scalars(_stats.mean(keypath)));
         _rec->log("stats/stdev/" + keypath,
