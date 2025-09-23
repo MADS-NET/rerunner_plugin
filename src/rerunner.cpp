@@ -61,6 +61,7 @@ private:
   std::vector<std::string> _keypaths;
   std::vector<std::string> _acf_keypaths;
   std::vector<std::string> _fft_keypaths;
+  std::vector<std::string> _trace_keypaths;
   MovingWindowStats _stats;
   size_t _window_size = 1000; // Store 10x ACF width for better statistics
   filesystem::path _blueprint;
@@ -76,6 +77,8 @@ private:
     std::string result;
     std::string token;
     bool in_brackets = false;
+    if (dot_path[0] == '/') 
+      return json::json_pointer(dot_path);
 
     for (char c : dot_path) {
       if (c == '[') {
@@ -110,12 +113,8 @@ private:
   // Helper function to safely get a value from JSON using dot notation
   std::optional<double> get_numeric_value(const json &j,
                                           const std::string &dot_path) {
-    nlohmann::json::json_pointer ptr;
-    if (dot_path[0] == '/') {
-      ptr = nlohmann::json::json_pointer(dot_path);
-    } else {
-      ptr = dot_to_pointer(dot_path);
-    }
+    json::json_pointer ptr = dot_to_pointer(dot_path);
+
     try {
       const auto &value = j[ptr];
 
@@ -131,8 +130,6 @@ private:
 public:
   RerunnerPlugin() {
     _start_time = std::chrono::steady_clock::now();
-    _rec = std::make_shared<rerun::RecordingStream>("MADS Data");
-    _rec->spawn().exit_on_failure();
   }
 
   // Typically, no need to change this
@@ -209,6 +206,13 @@ public:
       }
     }
 
+    for (const auto &keypath : _trace_keypaths) {
+      json::json_pointer ptr(dot_to_pointer(keypath));
+      if (data[ptr].is_array() && data[ptr].size() == 3) {
+        _rec->log("trace/" + keypath, rerun::Points3D(rerun::Position3D(data[ptr])));
+      }
+    }
+
     // Process ACF keypaths
     for (const auto &keypath : _acf_keypaths) {
       if (_stats.is_full(keypath)) {
@@ -250,10 +254,11 @@ public:
     Sink::set_params(params);
 
     // provide sensible defaults for the parameters
-    _params["keypaths"] = json::array();     // empty array by default
-    _params["acf_keypaths"] = json::array(); // empty array by default
-    _params["fft_keypaths"] = json::array(); // empty array by default
-    _params["window_size"] = 100;            // default ACF width
+    _params["keypaths"] = json::array();       // empty array by default
+    _params["acf_keypaths"] = json::array();   // empty array by default
+    _params["fft_keypaths"] = json::array();   // empty array by default
+    _params["trace_keypaths"] = json::array(); // empty array by default
+    _params["window_size"] = 100;              // default ACF width
     _params["time"] = "timecode";
     _params["blueprint"] = "";
     _params["parallelize"] = true;
@@ -262,6 +267,13 @@ public:
     _params.merge_patch(*(json *)params);
 
     _stats.reset(_params["window_size"]);
+
+    _rec = std::make_shared<rerun::RecordingStream>("MADS " + _params["agent_name"].get<string>());
+    _rec->spawn().exit_on_failure();
+
+    if (!_agent_id.empty()) {
+      _rec->send_recording_name(_agent_id);
+    }
 
     _blueprint = _params["blueprint"].get<string>();
     if (filesystem::exists(_blueprint)) {
@@ -306,6 +318,19 @@ public:
       }
     }
 
+    // Load trace configuration
+    _trace_keypaths.clear();
+    if (_params.contains("trace_keypaths") &&
+        _params["trace_keypaths"].is_array()) {
+      for (const auto &path : _params["trace_keypaths"]) {
+        if (path.is_string()) {
+          _trace_keypaths.push_back(path.get<std::string>());
+          // Initialize buffer for this keypath
+          // _signal_buffers[path.get<std::string>()];
+        }
+      }
+    }
+
     // Update ACF width if specified
     if (_params.contains("window_size") && _params["window_size"].is_number()) {
       _window_size = _params["window_size"].get<size_t>();
@@ -323,7 +348,9 @@ public:
             {"ACF Keypaths",
              _acf_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
             {"FFT Keypaths",
-             _fft_keypaths.empty() ? "None" : json(_acf_keypaths).dump()},
+             _fft_keypaths.empty() ? "None" : json(_fft_keypaths).dump()},
+            {"Trace Keypaths",
+             _trace_keypaths.empty() ? "None" : json(_trace_keypaths).dump()},
             {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
             {"Time column", _params["time"].get<string>().empty()
                                 ? "timecode"
