@@ -75,6 +75,15 @@ cmake -Bbuild -DWITH_ABSCISSA:BOOL=FALSE
 Rerun viewer supports **blueprints**: those are files describing the layout of panels and controls in the viewer. You can configure the layout to your liking, then save the corresponding blueprint (from the menu with the Rerun logo on the window top left corner, select *save blueprint...*). Then add a `blueprint` key to the INI file (see below) pointing to the `.rbl` file.
 
 
+## Rerun console output
+
+The Rerun SDK prints logging messages on the console. If you don't want it to pullute the plugin output, you can disable it:
+
+```bash
+export RUST_LOG=error rerun
+```
+
+
 ## INI settings
 
 The plugin supports the following settings in the INI file:
