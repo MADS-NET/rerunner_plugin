@@ -1,8 +1,9 @@
-#include "moving_window_stats.hpp"
-#include <complex>
+#define _USE_MATH_DEFINES // for C++
 #include <cmath>
+#include <complex>
 #include <iostream>
 #include <iomanip>
+#include "moving_window_stats.hpp"
 
 bool MovingWindowStats::add(std::string const key, double value) {
     auto &buffer = _signal_buffers[key];

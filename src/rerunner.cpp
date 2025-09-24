@@ -356,7 +356,7 @@ public:
             {"Time column", _params["time"].get<string>().empty()
                                 ? "timecode"
                                 : _params["time"].get<std::string>()},
-            {"Blueprint", (_blueprint.empty() ? "None" : _blueprint)},
+            {"Blueprint", (_blueprint.empty() ? "None" : _blueprint.string())},
             {"Parallelize", _params["parallelize"].get<bool>() ? to_string(_pool.get_thread_count()) + " threads" : "NO"}
           };
   };
