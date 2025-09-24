@@ -206,6 +206,7 @@ public:
       }
     }
 
+    // Traces
     for (const auto &keypath : _trace_keypaths) {
       json::json_pointer ptr(dot_to_pointer(keypath));
       if (data[ptr].is_array() && data[ptr].size() == 3) {
