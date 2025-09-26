@@ -278,7 +278,7 @@ public:
     _window_size = _params.value("window_size", 200);
     _stats.reset(_window_size);
 
-    _rec = std::make_shared<rerun::RecordingStream>("MADS " + _params["agent_name"].get<string>());
+    _rec = std::make_shared<rerun::RecordingStream>("MADS " + _params.value("agent_name", "rerunner (generic)"));
     _rec->spawn().exit_on_failure();
 
     if (!_agent_id.empty()) {
