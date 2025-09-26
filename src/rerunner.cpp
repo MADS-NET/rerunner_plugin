@@ -141,6 +141,7 @@ public:
     static double mean_dt = 0;
     static size_t n = 0;
     double dt = 0;
+    bool logged = false;
     if (topic.empty()) {
       _error = "No topic specified in plugin load_data()";
       return return_type::error;
@@ -157,19 +158,10 @@ public:
     }
 
     dt = time_seconds - prev_time;
-    if (n > 0) {
-      mean_dt = ((n - 1) * mean_dt + dt) / (double)n;
-      _rec->log("stats/timestep", rerun::Scalars(dt));
-      _rec->log("stats/mean_timestep", rerun::Scalars(mean_dt));
-    }
-    prev_time = time_seconds;
-    n++;
 
     // embed the input json within a parent object named as the topic
     json data = json{{topic, std::move(input)}};
 
-    // Set the current time for this batch of data
-    _rec->set_time_duration_secs("time", time_seconds);
 
     // Extract values for each keypath and send to rerun
     if (_params["parallelize"].get<bool>()) {
@@ -190,6 +182,7 @@ public:
                   rerun::Scalars(_stats.stdev(keypath)));
         _rec->log("stats/std_uncertainty/" + keypath,
                   rerun::Scalars(_stats.st_uncertainty(keypath)));
+        logged = true;
       }
     } else {
       for (const auto &keypath : _keypaths) {
@@ -202,6 +195,7 @@ public:
                     rerun::Scalars(_stats.stdev(keypath)));
           _rec->log("stats/std_uncertainty/" + keypath,
                     rerun::Scalars(_stats.st_uncertainty(keypath)));
+          logged = true;
         }
       }
     }
@@ -211,6 +205,7 @@ public:
       json::json_pointer ptr(dot_to_pointer(keypath));
       if (data[ptr].is_array() && data[ptr].size() == 3) {
         _rec->log("trace/" + keypath, rerun::Points3D(rerun::Position3D(data[ptr])));
+        logged = true;
       }
     }
 
@@ -219,6 +214,7 @@ public:
       if (_stats.is_full(keypath)) {
         _rec->log("acf_plot/" + keypath,
                   rerun::BarChart::f64(_stats.acf(keypath)));
+        logged = true;
       }
     }
 
@@ -242,11 +238,24 @@ public:
 #else
                     rerun::BarChart::f64(_stats.fft(keypath)));
 #endif
+          logged = true;
         }
       }
     }
 
-    return return_type::success;
+    if (logged) {
+      if (n > 0) {
+        mean_dt = ((n - 1) * mean_dt + dt) / (double)n;
+        _rec->log("stats/timestep", rerun::Scalars(dt));
+        _rec->log("stats/mean_timestep", rerun::Scalars(mean_dt));
+      }
+      prev_time = time_seconds;
+      n++;
+      // Set the current time for this batch of data
+      _rec->set_time_duration_secs("time", time_seconds);
+      return return_type::retry;
+    } else 
+      return return_type::success;
   }
 
   void set_params(void const *params) override {
@@ -266,8 +275,8 @@ public:
 
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(*(json *)params);
-
-    _stats.reset(_params["window_size"]);
+    _window_size = _params.value("window_size", 200);
+    _stats.reset(_window_size);
 
     _rec = std::make_shared<rerun::RecordingStream>("MADS " + _params["agent_name"].get<string>());
     _rec->spawn().exit_on_failure();
@@ -276,11 +285,11 @@ public:
       _rec->send_recording_name(_agent_id);
     }
 
-    _blueprint = _params["blueprint"].get<string>();
+    _blueprint = _params.value("blueprint", "");
     if (filesystem::exists(_blueprint)) {
       _rec->log_file_from_path(_blueprint);
     } else if (!_blueprint.empty()) {
-      _blueprint = _params["blueprint"].get<string>() + " (not found)";
+      _blueprint = _params.value("blueprint", "") + " (not found)";
     }
 
     // Load the keypaths configuration
@@ -330,11 +339,6 @@ public:
           // _signal_buffers[path.get<std::string>()];
         }
       }
-    }
-
-    // Update ACF width if specified
-    if (_params.contains("window_size") && _params["window_size"].is_number()) {
-      _window_size = _params["window_size"].get<size_t>();
     }
   }
 

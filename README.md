@@ -89,8 +89,8 @@ export RUST_LOG=error rerun
 The plugin supports the following settings in the INI file:
 
 ```ini
-[rerun_play]
-sub_topic = ["replay"]. # Topics to subscribe to (array of strings)
+[rerunner]
+sub_topic = ["replay"] # Topics to subscribe to (array of strings)
 time = "timecode"       # Name of the timecode column in the input data (string)
 # List of keypaths for time series
 keypaths = ["/replay/sensor/temperature", "/replay/sensor/humidity"]
