@@ -38,6 +38,16 @@ cmake --install build --config Release
 
 You need to install and run an instance of the Rerun viewer. You can download it from [here](https://rerun.io/docs/getting-started/installing-viewer#installing-the-viewer).
 
+We suggest to install it via pip:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows use `.venv\Scripts\activate
+pip install rerun-sdk==0.27.3
+````
+
+Note that the SDK version that you specify in the pip installation must match the version of the Rerun SDK used to build the plugin (see `CMakeLists.txt` in the `FetchContent_Declare(rerun_sdk` section). At the moment, some of the rerun-sdk dependencies (arrow library) for rerun-sdk versions newer than 0.27.3 cannot build on cmake 4.x.
+
 
 ## Concepts
 

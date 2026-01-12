@@ -52,7 +52,7 @@ set(BUILD_TESTING OFF CACHE INTERNAL "")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 FetchContent_Declare(json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG        v3.11.3
+  GIT_TAG        v3.12.0
   GIT_SHALLOW    TRUE
 )
 
@@ -65,7 +65,7 @@ FetchContent_Declare(threadpool
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk 
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-  URL "https://github.com/rerun-io/rerun/releases/download/0.25.1/rerun_cpp_sdk.zip"
+  URL "https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip"
 )
 FetchContent_MakeAvailable(pugg json rerun_sdk threadpool)
 
