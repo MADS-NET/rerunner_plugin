@@ -27,6 +27,7 @@
 #include <sink.hpp>
 
 #include "moving_window_stats.hpp"
+#include "skeleton.hpp"
 #include <BS_thread_pool.hpp>
 #include <array>
 #include <chrono>
@@ -68,6 +69,8 @@ private:
 
   std::chrono::steady_clock::time_point _start_time;
   std::shared_ptr<rerun::RecordingStream> _rec;
+
+  unique_ptr<Skeleton> _skeleton;
 
   BS::thread_pool<BS::tp::none> _pool;
   vector<future<bool>> _futures;
@@ -243,6 +246,12 @@ public:
       }
     }
 
+    // Skeleton
+    if (!_params["skeleton"].get<string>().empty() && input[_params["skeleton"]].is_object()) {
+      _skeleton->log(input[_params["skeleton"]]);
+      logged = true;
+    }
+
     if (logged) {
       if (n > 0) {
         mean_dt = ((n - 1) * mean_dt + dt) / (double)n;
@@ -268,6 +277,8 @@ public:
     _params["acf_keypaths"] = json::array();   // empty array by default
     _params["fft_keypaths"] = json::array();   // empty array by default
     _params["trace_keypaths"] = json::array(); // empty array by default
+    _params["skeleton"] = string();            // empty string by default
+    _params["nodes_radius"] = 1.0;             // default skeleton node radius
     _params["window_size"] = 100;              // default ACF width
     _params["time"] = "timecode";
     _params["blueprint"] = "";
@@ -340,6 +351,12 @@ public:
         }
       }
     }
+
+    // Skeleton
+    if (!_params["skeleton"].get<string>().empty()) {
+      _skeleton = make_unique<Skeleton>(_rec.get());
+      _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
+    }
   }
 
   // Implement this method if you want to provide additional information
@@ -357,6 +374,7 @@ public:
             {"Trace Keypaths",
              _trace_keypaths.empty() ? "None" : json(_trace_keypaths).dump()},
             {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
+            {"Skeleton field", _params["skeleton"].get<std::string>()},
             {"Time column", _params["time"].get<string>().empty()
                                 ? "timecode"
                                 : _params["time"].get<std::string>()},
