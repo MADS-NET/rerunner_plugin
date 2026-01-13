@@ -42,8 +42,6 @@ public:
         cerr << "Unknown error logging skeleton node " << key << endl;
       }
     }
-    cout << "Logged " << logged_nodes << " skeleton nodes." << endl;
-    cout << "Frame number: " << frame_no << endl;
     _rec->log("nodes_no", rerun::Scalars(logged_nodes));
     _rec->log("frame_no", rerun::Scalars(frame_no));
     frame_no++;
