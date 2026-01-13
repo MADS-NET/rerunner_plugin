@@ -356,6 +356,17 @@ public:
     if (!_params["skeleton"].get<string>().empty()) {
       _skeleton = make_unique<Skeleton>(_rec.get());
       _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
+      _rec->log("skeleton/axes", 
+        rerun::Arrows3D::from_vectors(
+          rerun::Collection<rerun::components::Vector3D>{
+            rerun::components::Vector3D{1000.0f, 0.0f, 0.0f},
+            rerun::components::Vector3D{0.0f, 1000.0f, 0.0f},
+            rerun::components::Vector3D{0.0f, 0.0f, 1000.0f}
+          }
+        ).with_radii({10.0f, 10.0f, 10.0f})
+         .with_labels({"X", "Y", "Z"})
+         .with_colors({{255, 0, 0}, {0, 255, 0}, {0, 0, 255}})
+      );
     }
   }
 
