@@ -1,3 +1,6 @@
+#include <Eigen/Dense>
+#include <Eigen/Eigenvalues>
+#include <Eigen/Geometry>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <rerun.hpp>
@@ -6,12 +9,69 @@
 using json = nlohmann::json;
 using namespace std;
 
+struct Ellipsoid3D {
+  Eigen::Vector3d semi_axes;     // a, b, c
+  Eigen::Quaterniond quaternion; // orientation
+  Ellipsoid3D(
+      const Eigen::Matrix3d &covariance,
+      double k = 1.0 // scaling factor (1 = 1σ, sqrt(chi2) for confidence)
+  ) {
+    // Ensure symmetry (important for numerical robustness)
+    Eigen::Matrix3d C = 0.5 * (covariance + covariance.transpose());
+
+    // Eigen-decomposition for symmetric matrix
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(C);
+    if (solver.info() != Eigen::Success) {
+      throw std::runtime_error("Eigen decomposition failed");
+    }
+
+    // Eigenvalues (ascending order) and eigenvectors
+    Eigen::Vector3d eigenvalues = solver.eigenvalues();
+    Eigen::Matrix3d eigenvectors = solver.eigenvectors();
+
+    // Semi-axes lengths
+    semi_axes = k * eigenvalues.cwiseSqrt();
+
+    // Rotation matrix from eigenvectors
+    Eigen::Matrix3d R = eigenvectors;
+
+    // Enforce right-handed coordinate system (determinant +1)
+    if (R.determinant() < 0.0) {
+      R.col(0) *= -1.0;
+    }
+
+    // Convert rotation matrix to quaternion
+    quaternion = Eigen::Quaterniond(R);
+    quaternion.normalize();
+  }
+
+  Ellipsoid3D(vector<double> cov_array, double k = 1.0) {
+    if (cov_array.size() != 6) {
+      throw std::invalid_argument(
+          "Covariance array must have exactly 6 elements.");
+    }
+    Eigen::Matrix3d covariance;
+    covariance << cov_array[0], cov_array[3], cov_array[4], cov_array[3],
+        cov_array[1], cov_array[5], cov_array[4], cov_array[5], cov_array[2];
+    *this = Ellipsoid3D(covariance, k);
+  }
+
+  Ellipsoid3D(json &ary, double k = 1.0) {
+    if (!ary.is_array() || ary.size() != 6) {
+      throw std::invalid_argument(
+          "Covariance JSON must be an array of exactly 6 elements.");
+    }
+    vector<double> cov_array = ary.get<vector<double>>();
+    *this = Ellipsoid3D(cov_array, k);
+  }
+};
+
 class Skeleton {
-public:
   static inline const array<string, 18> ValidNodes = {
-      "ANKL", "ANKR", "EARR", "EARL", "ELBL", "ELBR", "EYEL", "EYER", "HIPL", 
+      "ANKL", "ANKR", "EARR", "EARL", "ELBL", "ELBR", "EYEL", "EYER", "HIPL",
       "HIPR", "KNEL", "KNER", "NEC_", "NOS_", "SHOL", "SHOR", "WRIL", "WRIR"};
 
+public:
   Skeleton(rerun::RecordingStream *rec) : _rec(rec) {}
   ~Skeleton() {}
 
@@ -31,7 +91,25 @@ public:
       }
       try {
         _rec->log("skeleton/nodes/" + key,
-                  rerun::Points3D(rerun::Position3D(value["crd"])).with_radii({_radius}));
+                  rerun::Points3D(rerun::Position3D(value["crd"]))
+                      .with_radii({_radius})
+                      .with_labels({key}));
+        auto e = Ellipsoid3D(value["unc"]);
+        // cout << "Node " << key << ": semi-axes = [" <<
+        // e.semi_axes.transpose()
+        //      << "], quaternion = [" << e.quaternion.w() << ", " <<
+        //      e.quaternion.vec().transpose()
+        //      << "]" << endl;
+        _rec->log("skeleton/uncertainty/" + key,
+                  rerun::Ellipsoids3D::from_centers_and_half_sizes(
+                      rerun::Collection{rerun::Position3D(value["crd"])},
+                      rerun::Collection{rerun::HalfSize3D(
+                          e.semi_axes.x(), e.semi_axes.y(), e.semi_axes.z())})
+                      .with_quaternions(
+                          rerun::Collection{rerun::components::RotationQuat(
+                              rerun::Quaternion::from_wxyz(
+                                  e.quaternion.w(), e.quaternion.x(),
+                                  e.quaternion.y(), e.quaternion.z()))}));
         logged_nodes++;
       } catch (const json::exception &e) {
         // NOOP
@@ -54,9 +132,11 @@ public:
     vector<rerun::Vec3D> head;
     vector<rerun::Vec3D> neck;
 
-    auto addIfValid = [](const json &data, const string &key, vector<rerun::Vec3D> &vec) {
-      if (!data[key].is_null() && data[key]["crd"].is_array() && data[key]["crd"][0].is_number()) {
-      vec.push_back(rerun::Vec3D(data[key]["crd"]));
+    auto addIfValid = [](const json &data, const string &key,
+                         vector<rerun::Vec3D> &vec) {
+      if (!data[key].is_null() && data[key]["crd"].is_array() &&
+          data[key]["crd"][0].is_number()) {
+        vec.push_back(rerun::Vec3D(data[key]["crd"]));
       }
     };
 
@@ -106,5 +186,5 @@ public:
 private:
   rerun::RecordingStream *_rec;
   float _radius = 1.0f;
-  /* data */
+
 }; // class Skeleton

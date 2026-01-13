@@ -62,12 +62,22 @@ FetchContent_Declare(threadpool
   GIT_SHALLOW TRUE
 )
 
+set(EIGEN_BUILD_DOC OFF CACHE INTERNAL "")
+set(EIGEN_BUILD_TESTING OFF CACHE INTERNAL "")
+set(EIGEN_BUILD_PKGCONFIG OFF CACHE INTERNAL "")
+set(BUILD_TESTING OFF CACHE INTERNAL "")
+FetchContent_Declare(Eigen
+  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+  GIT_TAG 3.4.0
+  GIT_SHALLOW TRUE
+)
+
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk 
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   URL "https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip"
 )
-FetchContent_MakeAvailable(pugg json rerun_sdk threadpool)
+FetchContent_MakeAvailable(pugg json rerun_sdk threadpool Eigen)
 
 FetchContent_GetProperties(rerun_sdk)
 if(NOT rerun_sdk_POPULATED)
@@ -88,6 +98,7 @@ include_directories(
   ${plugin_SOURCE_DIR}/src
   ${rerun_sdk_SOURCE_DIR}/src
   ${threadpool_SOURCE_DIR}/include
+
 )
 
 # MACROS #######################################################################
@@ -133,7 +144,7 @@ endif()
 include_directories(${json_SOURCE_DIR}/include)
 
 # These plugins are always build and use for testing
-add_plugin(rerunner LIBS rerun_sdk SRCS ${SRC_DIR}/moving_window_stats.cpp)
+add_plugin(rerunner LIBS rerun_sdk  Eigen3::Eigen SRCS ${SRC_DIR}/moving_window_stats.cpp)
 add_dependencies(rerunner rerun_sdk)
 if(WITH_ABSCISSA)
   target_compile_definitions(rerunner PUBLIC WITH_ABSCISSA)
