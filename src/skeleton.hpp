@@ -8,9 +8,9 @@ using namespace std;
 
 class Skeleton {
 public:
-  static inline const array<string, 17> ValidNodes = {
-      "ANKL", "ANKR", "EARR", "ELBL", "ELBR", "EYEL", "EYER", "HIPL", "HIPR",
-      "KNEL", "KNER", "NEC_", "NOS_", "SHOL", "SHOR", "WRIL", "WRIR"};
+  static inline const array<string, 18> ValidNodes = {
+      "ANKL", "ANKR", "EARR", "EARL", "ELBL", "ELBR", "EYEL", "EYER", "HIPL", 
+      "HIPR", "KNEL", "KNER", "NEC_", "NOS_", "SHOL", "SHOR", "WRIL", "WRIR"};
 
   Skeleton(rerun::RecordingStream *rec) : _rec(rec) {}
   ~Skeleton() {}
