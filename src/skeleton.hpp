@@ -95,11 +95,6 @@ public:
                       .with_radii({_radius})
                       .with_labels({key}));
         auto e = Ellipsoid3D(value["unc"]);
-        // cout << "Node " << key << ": semi-axes = [" <<
-        // e.semi_axes.transpose()
-        //      << "], quaternion = [" << e.quaternion.w() << ", " <<
-        //      e.quaternion.vec().transpose()
-        //      << "]" << endl;
         _rec->log("skeleton/uncertainty/" + key,
                   rerun::Ellipsoids3D::from_centers_and_half_sizes(
                       rerun::Collection{rerun::Position3D(value["crd"])},
@@ -112,8 +107,14 @@ public:
                                   e.quaternion.y(), e.quaternion.z()))}));
         logged_nodes++;
       } catch (const json::exception &e) {
-        // NOOP
+        _rec->log("logs/skeleton_errors",
+                  rerun::TextLog("Node " + key + " incomplete or invalid")
+                      .with_level(rerun::TextLogLevel::Info));
       } catch (const std::exception &e) {
+        _rec->log("logs/skeleton_errors",
+                  rerun::TextLog("Error logging skeleton node " + key + ": " +
+                                 string(e.what()))
+                      .with_level(rerun::TextLogLevel::Error));
         cerr << "Standard exception logging skeleton node " << key << ": "
              << e.what() << endl;
       } catch (...) {
