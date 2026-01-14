@@ -359,7 +359,7 @@ public:
       _skeleton = make_unique<Skeleton>(_rec.get());
       _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
       _rec->log("skeleton", rerun::Transform3D::from_scale(_params.value("3D_scale", 0.001f)));
-      _rec->log("skeleton/axes", 
+      _rec->log_static("skeleton/axes", 
         rerun::Arrows3D::from_vectors(
           rerun::Collection<rerun::components::Vector3D>{
             rerun::components::Vector3D{1000.0f, 0.0f, 0.0f},
@@ -371,7 +371,29 @@ public:
          .with_colors({{255, 0, 0}, {0, 255, 0}, {0, 0, 255}})
       );
       if (_params["scene_file_path"].is_string() && !_params["scene_file_path"].get<string>().empty()) {
-        _rec->log("scene", rerun::Asset3D::from_file_path(_params["scene_file_path"].get<string>()).value_or_throw());
+
+        _rec->log_static("scene", rerun::Asset3D::from_file_path(_params["scene_file_path"].get<string>()).value_or_throw());
+        
+        _rec->log_static("scene", 
+          rerun::Transform3D::from_rotation(
+            rerun::components::RotationAxisAngle(
+              rerun::datatypes::RotationAxisAngle{
+                rerun::datatypes::Vec3D{0.0f, 1.0f, 0.0f},
+                rerun::datatypes::Angle::degrees(_params.value("scene_file_y_rot", 0.0f))
+              }
+            )
+          )
+        );
+        
+        _rec->log_static("scene", 
+          rerun::Transform3D::from_translation(
+            rerun::components::Translation3D{
+              _params.value("scene_file_offset", std::array<float,3>{0.0f, 0.0f, 0.0f})[0],
+              _params.value("scene_file_offset", std::array<float,3>{0.0f, 0.0f, 0.0f})[1],
+              _params.value("scene_file_offset", std::array<float,3>{0.0f, 0.0f, 0.0f})[2]
+            }
+          )
+        );
       }
     }
   }
