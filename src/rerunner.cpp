@@ -283,6 +283,8 @@ public:
     _params["time"] = "timecode";
     _params["blueprint"] = "";
     _params["parallelize"] = true;
+    _params["3D_scale"] = 0.001;               // default scale for 3D data
+    _params["scene_file_path"] = string();     // empty string by default
 
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(*(json *)params);
@@ -356,6 +358,7 @@ public:
     if (!_params["skeleton"].get<string>().empty()) {
       _skeleton = make_unique<Skeleton>(_rec.get());
       _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
+      _rec->log("skeleton", rerun::Transform3D::from_scale(_params.value("3D_scale", 0.001f)));
       _rec->log("skeleton/axes", 
         rerun::Arrows3D::from_vectors(
           rerun::Collection<rerun::components::Vector3D>{
@@ -367,6 +370,9 @@ public:
          .with_labels({"X", "Y", "Z"})
          .with_colors({{255, 0, 0}, {0, 255, 0}, {0, 0, 255}})
       );
+      if (_params["scene_file_path"].is_string() && !_params["scene_file_path"].get<string>().empty()) {
+        _rec->log("scene", rerun::Asset3D::from_file_path(_params["scene_file_path"].get<string>()).value_or_throw());
+      }
     }
   }
 
@@ -386,6 +392,10 @@ public:
              _trace_keypaths.empty() ? "None" : json(_trace_keypaths).dump()},
             {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
             {"Skeleton field", _params["skeleton"].get<std::string>()},
+            {"3D Scale", std::to_string(_params["3D_scale"].get<double>())},
+            {"Scene file path", _params["scene_file_path"].get<string>().empty()
+                                ? "None"
+                                : _params["scene_file_path"].get<string>()},
             {"Time column", _params["time"].get<string>().empty()
                                 ? "timecode"
                                 : _params["time"].get<std::string>()},
