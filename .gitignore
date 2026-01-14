@@ -1,2 +1,5 @@
 *build*/
 *.rbl
+!skeleton.rbl
+checks.json
+tools/*
