@@ -34,6 +34,14 @@ cmake --build build --config Release
 cmake --install build --config Release
 ```
 
+**Note**: on Windows and with CMake versions newer than 4.0, some of the dependent libraries of Eigen won't compile. To solve the problem set the following environment variable before running cmake:
+
+```powershell
+$env:CMAKE_POLICY_VERSION_MINIMUM = "3.5"
+```
+
+Note that this is a temporary setting and is valid only for the current PowerShell session.
+
 ## Requirements
 
 You need to install and run an instance of the Rerun viewer. You can download it from [here](https://rerun.io/docs/getting-started/installing-viewer#installing-the-viewer).
