@@ -273,18 +273,19 @@ public:
     Sink::set_params(params);
 
     // provide sensible defaults for the parameters
+    _params["blueprint"] = "";
+    _params["time"] = "timecode";
+    _params["parallelize"] = true;
     _params["keypaths"] = json::array();       // empty array by default
     _params["acf_keypaths"] = json::array();   // empty array by default
     _params["fft_keypaths"] = json::array();   // empty array by default
     _params["trace_keypaths"] = json::array(); // empty array by default
-    _params["skeleton"] = string();            // empty string by default
-    _params["show_axes"] = true;               // show skeleton axes by default
-    _params["nodes_radius"] = 1.0;             // default skeleton node radius
     _params["window_size"] = 100;              // default ACF width
-    _params["time"] = "timecode";
-    _params["blueprint"] = "";
-    _params["parallelize"] = true;
+    _params["skeleton"] = string();            // empty string by default
     _params["3D_scale"] = 0.001;               // default scale for 3D data
+    _params["show_axes"] = true;               // show skeleton axes by default
+    _params["axes_length"] = 1000.0f;          // default axes length (mm)
+    _params["nodes_radius"] = 1.0;             // default skeleton node radius
     _params["scene_file_path"] = string();     // empty string by default
 
     // then merge the defaults with the actually provided parameters
@@ -361,7 +362,7 @@ public:
 
       _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
       _skeleton->set_scale(_params.value("3D_scale", 0.001f));
-      _skeleton->show_axes(_params.value("show_axes", true));
+      _skeleton->show_axes(_params.value("show_axes", true), _params.value("axes_length", 1000.0f));
       if (!_params.value("scene_file_path", "").empty()) {
         _skeleton->show_scene(
           _params["scene_file_path"].get<string>(),

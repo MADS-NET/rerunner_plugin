@@ -195,15 +195,15 @@ public:
   }
   
   // Show coordinate axes
-  void show_axes(bool show) {
+  void show_axes(bool show, float size = 1000.0f) {
     if (!show)
       return;
     _rec->log_static("skeleton/axes",
                      rerun::Arrows3D::from_vectors(
                          rerun::Collection<rerun::components::Vector3D>{
-                             rerun::components::Vector3D{1000.0f, 0.0f, 0.0f},
-                             rerun::components::Vector3D{0.0f, 1000.0f, 0.0f},
-                             rerun::components::Vector3D{0.0f, 0.0f, 1000.0f}})
+                             rerun::components::Vector3D{size, 0.0f, 0.0f},
+                             rerun::components::Vector3D{0.0f, size, 0.0f},
+                             rerun::components::Vector3D{0.0f, 0.0f, size}})
                          .with_radii({10.0f})
                          .with_labels({"X", "Y", "Z"})
                          .with_colors({{255, 0, 0}, {0, 255, 0}, {0, 0, 255}}));
