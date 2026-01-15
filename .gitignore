@@ -1,5 +1,7 @@
 *build*/
 *.rbl
 !skeleton.rbl
+*.glb
+!scene.glb
 checks.json
 tools/*
