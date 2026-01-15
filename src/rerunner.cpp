@@ -278,6 +278,7 @@ public:
     _params["fft_keypaths"] = json::array();   // empty array by default
     _params["trace_keypaths"] = json::array(); // empty array by default
     _params["skeleton"] = string();            // empty string by default
+    _params["show_axes"] = true;               // show skeleton axes by default
     _params["nodes_radius"] = 1.0;             // default skeleton node radius
     _params["window_size"] = 100;              // default ACF width
     _params["time"] = "timecode";
@@ -357,43 +358,15 @@ public:
     // Skeleton
     if (!_params["skeleton"].get<string>().empty()) {
       _skeleton = make_unique<Skeleton>(_rec.get());
-      _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
-      _rec->log("skeleton", rerun::Transform3D::from_scale(_params.value("3D_scale", 0.001f)));
-      _rec->log_static("skeleton/axes", 
-        rerun::Arrows3D::from_vectors(
-          rerun::Collection<rerun::components::Vector3D>{
-            rerun::components::Vector3D{1000.0f, 0.0f, 0.0f},
-            rerun::components::Vector3D{0.0f, 1000.0f, 0.0f},
-            rerun::components::Vector3D{0.0f, 0.0f, 1000.0f}
-          }
-        ).with_radii({10.0f, 10.0f, 10.0f})
-         .with_labels({"X", "Y", "Z"})
-         .with_colors({{255, 0, 0}, {0, 255, 0}, {0, 0, 255}})
-      );
-      if (_params["scene_file_path"].is_string() && !_params["scene_file_path"].get<string>().empty()) {
 
-        _rec->log_static("scene", rerun::Asset3D::from_file_path(_params["scene_file_path"].get<string>()).value_or_throw());
-        
-        _rec->log_static("scene", 
-          rerun::Transform3D::from_rotation(
-            rerun::components::RotationAxisAngle(
-              rerun::datatypes::RotationAxisAngle{
-                rerun::datatypes::Vec3D{0.0f, 1.0f, 0.0f},
-                rerun::datatypes::Angle::degrees(_params.value("scene_file_y_rot", 0.0f))
-              }
-            )
-          )
-        );
-        
-        _rec->log_static("scene", 
-          rerun::Transform3D::from_translation(
-            rerun::components::Translation3D{
-              _params.value("scene_file_offset", std::array<float,3>{0.0f, 0.0f, 0.0f})[0],
-              _params.value("scene_file_offset", std::array<float,3>{0.0f, 0.0f, 0.0f})[1],
-              _params.value("scene_file_offset", std::array<float,3>{0.0f, 0.0f, 0.0f})[2]
-            }
-          )
-        );
+      _skeleton->set_radius(_params.value("nodes_radius", 1.0f));
+      _skeleton->set_scale(_params.value("3D_scale", 0.001f));
+      _skeleton->show_axes(_params.value("show_axes", true));
+      if (!_params.value("scene_file_path", "").empty()) {
+        _skeleton->show_scene(
+          _params["scene_file_path"].get<string>(),
+          _params.value("scene_file_y_rot", 0.0f),
+          _params.value("scene_file_offset", array<float, 3>{0.0, 0.0, 0.0}));
       }
     }
   }

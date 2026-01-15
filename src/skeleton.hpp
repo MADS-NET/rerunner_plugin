@@ -72,7 +72,12 @@ class Skeleton {
       "HIPR", "KNEL", "KNER", "NEC_", "NOS_", "SHOL", "SHOR", "WRIL", "WRIR"};
 
 public:
-  Skeleton(rerun::RecordingStream *rec) : _rec(rec) {}
+  Skeleton(rerun::RecordingStream *rec) : _rec(rec) {
+    if (!_rec) {
+      throw std::invalid_argument("RecordingStream pointer cannot be null.");
+    }
+    _rec->log_static("/", rerun::ViewCoordinates::RIGHT_HAND_Y_UP);
+  }
   ~Skeleton() {}
 
   void log(const json &data) {
@@ -83,7 +88,6 @@ public:
   void log_nodes(const json &data) {
     unsigned static long frame_no = 0;
     unsigned int logged_nodes = 0;
-    _rec->log("skeleton", rerun::ViewCoordinates::RIGHT_HAND_Y_UP);
     for (const auto &[key, value] : data.items()) {
       if (!value.is_object() ||
           find(ValidNodes.begin(), ValidNodes.end(), key) == ValidNodes.end()) {
@@ -182,7 +186,48 @@ public:
     _rec->log("skeleton/head", rerun::LineStrips3D({head_col, neck_col}));
   }
 
+  // Points radius
   void set_radius(float radius) { _radius = radius; }
+
+  // Scale skeleton
+  void set_scale(float scale) { 
+    _rec->log_static("skeleton", rerun::Transform3D::from_scale(scale));
+  }
+  
+  // Show coordinate axes
+  void show_axes(bool show) {
+    if (!show)
+      return;
+    _rec->log_static("skeleton/axes",
+                     rerun::Arrows3D::from_vectors(
+                         rerun::Collection<rerun::components::Vector3D>{
+                             rerun::components::Vector3D{1000.0f, 0.0f, 0.0f},
+                             rerun::components::Vector3D{0.0f, 1000.0f, 0.0f},
+                             rerun::components::Vector3D{0.0f, 0.0f, 1000.0f}})
+                         .with_radii({10.0f})
+                         .with_labels({"X", "Y", "Z"})
+                         .with_colors({{255, 0, 0}, {0, 255, 0}, {0, 0, 255}}));
+  }
+
+  // Load and show scene from file
+  void show_scene(string path, float angle, array<float, 3> offset) {
+    // Scene file
+    _rec->log_static("scene",
+                     rerun::Asset3D::from_file_path(path).value_or_throw());
+    
+    // Rotation about Y (vertical)
+    _rec->log_static(
+        "scene",
+        rerun::Transform3D::from_rotation(rerun::components::RotationAxisAngle(
+            rerun::datatypes::RotationAxisAngle{
+                rerun::datatypes::Vec3D{0.0f, 1.0f, 0.0f},
+                rerun::datatypes::Angle::degrees(angle)})));
+    
+    // Translation / offset
+    _rec->log_static("scene", rerun::Transform3D::from_translation(
+                                  rerun::components::Translation3D{
+                                      offset[0], offset[1], offset[2]}));
+  }
 
 private:
   rerun::RecordingStream *_rec;
