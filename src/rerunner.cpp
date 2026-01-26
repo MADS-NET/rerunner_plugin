@@ -248,7 +248,10 @@ public:
 
     // Skeleton
     if (!_params["skeleton"].get<string>().empty() && input[_params["skeleton"]].is_object()) {
-      _skeleton->log(input[_params["skeleton"]]);
+      if (input["joints"].is_object())
+        _skeleton->log(input["joints"]);
+      else
+        _skeleton->log(input[_params["skeleton"]["joints"]]);
       logged = true;
     }
 

@@ -5,3 +5,4 @@
 !scene.glb
 checks.json
 tools/*
+.venv
