@@ -94,6 +94,7 @@ public:
         continue; // Skip invalid nodes
       }
       try {
+        if (value["crd"][0].is_null() || value["crd"][1].is_null() || value["crd"][2].is_null()) continue;
         _rec->log("skeleton/nodes/" + key,
                   rerun::Points3D(rerun::Position3D(value["crd"]))
                       .with_radii({_radius})
