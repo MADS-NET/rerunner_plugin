@@ -12,15 +12,16 @@ using namespace std;
 struct Ellipsoid3D {
   Eigen::Vector3d semi_axes;     // a, b, c
   Eigen::Quaterniond quaternion; // orientation
+  Eigen::Matrix3d covariance, rotation;
   Ellipsoid3D(
-      const Eigen::Matrix3d &covariance,
+      const Eigen::Matrix3d &cov,
       double k = 1.0 // scaling factor (1 = 1σ, sqrt(chi2) for confidence)
   ) {
     // Ensure symmetry (important for numerical robustness)
-    Eigen::Matrix3d C = 0.5 * (covariance + covariance.transpose());
+    covariance = 0.5 * (cov + cov.transpose());
 
     // Eigen-decomposition for symmetric matrix
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(C);
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver(covariance);
     if (solver.info() != Eigen::Success) {
       throw std::runtime_error("Eigen decomposition failed");
     }
@@ -30,18 +31,18 @@ struct Ellipsoid3D {
     Eigen::Matrix3d eigenvectors = solver.eigenvectors();
 
     // Semi-axes lengths
-    semi_axes = k * eigenvalues.cwiseSqrt();
+    semi_axes = k * eigenvalues.cwiseSqrt().reverse();
 
     // Rotation matrix from eigenvectors
-    Eigen::Matrix3d R = eigenvectors;
+    rotation = eigenvectors.rowwise().reverse();
 
     // Enforce right-handed coordinate system (determinant +1)
-    if (R.determinant() < 0.0) {
-      R.col(0) *= -1.0;
+    if (rotation.determinant() < 0.0) {
+      rotation.col(0) *= -1.0;
     }
 
     // Convert rotation matrix to quaternion
-    quaternion = Eigen::Quaterniond(R);
+    quaternion = Eigen::Quaterniond(rotation);
     quaternion.normalize();
   }
 
@@ -51,8 +52,9 @@ struct Ellipsoid3D {
           "Covariance array must have exactly 6 elements.");
     }
     Eigen::Matrix3d covariance;
-    covariance << cov_array[0], cov_array[3], cov_array[4], cov_array[3],
-        cov_array[1], cov_array[5], cov_array[4], cov_array[5], cov_array[2];
+    covariance << cov_array[0], cov_array[3], cov_array[4],
+                  cov_array[3], cov_array[1], cov_array[5], 
+                  cov_array[4], cov_array[5], cov_array[2];
     *this = Ellipsoid3D(covariance, k);
   }
 

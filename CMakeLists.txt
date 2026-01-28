@@ -150,6 +150,8 @@ if(WITH_ABSCISSA)
   target_compile_definitions(rerunner PUBLIC WITH_ABSCISSA)
 endif()
 
+add_executable(ellipsoid src/test.cpp)
+target_link_libraries(ellipsoid Eigen3::Eigen)
 
 
 
