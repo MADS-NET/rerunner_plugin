@@ -31,7 +31,7 @@ struct Ellipsoid3D {
     Eigen::Matrix3d eigenvectors = solver.eigenvectors();
 
     // Semi-axes lengths
-    semi_axes = k * eigenvalues.cwiseSqrt().reverse();
+    semi_axes = k * eigenvalues.cwiseSqrt(); //.reverse();
 
     // Rotation matrix from eigenvectors
     rotation = eigenvectors.rowwise().reverse();
