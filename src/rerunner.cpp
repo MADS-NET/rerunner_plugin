@@ -262,7 +262,7 @@ public:
       return return_type::success;
   }
 
-  void set_params(void const *params) override {
+  void set_params(const json &params) override {
     // Call the parent class method to set the common parameters
     // (e.g. agent_id, etc.)
     Sink::set_params(params);
@@ -284,7 +284,7 @@ public:
     _params["scene_file_path"] = string();     // empty string by default
 
     // then merge the defaults with the actually provided parameters
-    _params.merge_patch(*(json *)params);
+    _params.merge_patch(params);
     _window_size = _params.value("window_size", 200);
     _stats.reset(_window_size);
 
@@ -387,6 +387,7 @@ public:
             {"Scene file path", _params["scene_file_path"].get<string>().empty()
                                 ? "None"
                                 : _params["scene_file_path"].get<string>()},
+            {"Scene rotation:", std::to_string(_params.value("scene_file_y_rot", 0.0))},
             {"Time column", _params["time"].get<string>().empty()
                                 ? "timecode"
                                 : _params["time"].get<std::string>()},
@@ -424,7 +425,7 @@ int main(int argc, char const *argv[]) {
   params["test"] = "value";
 
   // Set the parameters
-  plugin.set_params(&params);
+  plugin.set_params(params);
 
   // Process data
   plugin.load_data(input);

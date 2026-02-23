@@ -96,7 +96,7 @@ public:
         continue; // Skip invalid nodes
       }
       try {
-        if (value["crd"][0].is_null() || value["crd"][1].is_null() || value["crd"][2].is_null()) continue;
+        if (value["crd"].size() != 3 || value["crd"][0].is_null() || value["crd"][1].is_null() || value["crd"][2].is_null()) continue;
         _rec->log("skeleton/nodes/" + key,
                   rerun::Points3D(rerun::Position3D(value["crd"]))
                       .with_radii({_radius})
@@ -142,8 +142,13 @@ public:
 
     auto addIfValid = [](const json &data, const string &key,
                          vector<rerun::Vec3D> &vec) {
-      if (!data[key].is_null() && data[key]["crd"].is_array() &&
-          data[key]["crd"][0].is_number()) {
+      if (!data[key].is_null() && 
+          data[key]["crd"].is_array() &&
+          data[key]["crd"].size() == 3 && 
+          data[key]["crd"][0].is_number() &&
+          data[key]["crd"][1].is_number() &&
+          data[key]["crd"][2].is_number() 
+      ) {
         vec.push_back(rerun::Vec3D(data[key]["crd"]));
       }
     };
@@ -219,18 +224,32 @@ public:
                      rerun::Asset3D::from_file_path(path).value_or_throw());
     
     // Rotation about Y (vertical)
-    _rec->log_static(
-        "scene",
-        rerun::Transform3D::from_rotation(rerun::components::RotationAxisAngle(
-            rerun::datatypes::RotationAxisAngle{
-                rerun::datatypes::Vec3D{0.0f, 1.0f, 0.0f},
-                rerun::datatypes::Angle::degrees(angle)})));
+    // _rec->log_static(
+    //     "scene",
+    //     rerun::Transform3D::from_rotation(rerun::components::RotationAxisAngle(
+    //         rerun::datatypes::RotationAxisAngle{
+    //             rerun::datatypes::Vec3D{0.0f, 1.0f, 0.0f},
+    //             rerun::datatypes::Angle::degrees(angle)})));
     
-    // Translation / offset
-    _rec->log_static("scene", rerun::Transform3D::from_translation(
-                                  rerun::components::Translation3D{
-                                      offset[0], offset[1], offset[2]}));
+    // // Translation / offset
+    // _rec->log_static("scene", rerun::Transform3D::from_translation(
+    //                               rerun::components::Translation3D{
+    //                                   offset[0], offset[1], offset[2]}));
+
+    _rec->log_static(
+      "scene",
+      rerun::Transform3D::from_translation_rotation_scale(
+        rerun::components::Translation3D{offset[0], offset[1], offset[2]},
+        rerun::components::RotationAxisAngle(
+          rerun::datatypes::RotationAxisAngle{
+                rerun::datatypes::Vec3D{0.0f, 1.0f, 0.0f},
+                rerun::datatypes::Angle::degrees(angle)}
+        ),
+        1
+      )
+    );
   }
+
 
 private:
   rerun::RecordingStream *_rec;
