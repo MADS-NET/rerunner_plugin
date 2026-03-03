@@ -201,6 +201,12 @@ public:
       if (data[ptr].is_array() && data[ptr].size() == 3) {
         _rec->log("trace/" + keypath, rerun::Points3D(rerun::Position3D(data[ptr])));
         logged = true;
+      } else if (data[ptr].is_array() && data[ptr].size() == 2) {
+        _rec->log("trace/" + keypath, rerun::Points2D(rerun::Position2D(data[ptr])));
+        logged = true;
+      } else {
+        _error = "Trace keypath " + keypath + " does not point to a valid 2D or 3D point array";
+        return return_type::error;
       }
     }
 
