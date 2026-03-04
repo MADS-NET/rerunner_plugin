@@ -160,6 +160,8 @@ public:
 
     // Extract values for each keypath and send to rerun
     if (_params["parallelize"].get<bool>()) {
+      _futures.clear();
+      _futures.reserve(_keypaths.size());
       for (const auto &keypath : _keypaths) {
         if (auto value = get_numeric_value(data, keypath)) {
           _rec->log("data/" + keypath, rerun::Scalars(*value));
@@ -170,6 +172,7 @@ public:
       for (const auto &f : _futures) {
         f.wait();
       }
+      _futures.clear();
       for (const auto &keypath : _keypaths) {
         _rec->log("stats/mean/" + keypath,
                   rerun::Scalars(_stats.mean(keypath)));
