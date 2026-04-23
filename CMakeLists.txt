@@ -10,7 +10,7 @@
 # Current working directory: /Users/p4010/Develop/MADS_plugins
 # Creation date: 2025-09-08T16:35:50.334+0200
 # NOTICE: MADS Version 1.3.5
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.28)
 project(rerun VERSION 1.3.5 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
@@ -46,20 +46,22 @@ FetchContent_Declare(pugg
   GIT_REPOSITORY https://github.com/pbosetti/pugg.git
   GIT_TAG        1.0.2
   GIT_SHALLOW    TRUE
+  EXCLUDE_FROM_ALL
 )
 
 set(BUILD_TESTING OFF CACHE INTERNAL "")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 FetchContent_Declare(json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG        v3.12.0
-  GIT_SHALLOW    TRUE
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+  EXCLUDE_FROM_ALL
 )
 
 FetchContent_Declare(threadpool
   GIT_REPOSITORY https://github.com/bshoshany/thread-pool.git
   GIT_TAG v5.0.0
   GIT_SHALLOW TRUE
+  EXCLUDE_FROM_ALL
 )
 
 set(EIGEN_BUILD_DOC OFF CACHE INTERNAL "")
@@ -70,20 +72,16 @@ FetchContent_Declare(Eigen
   GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
   GIT_TAG 3.4.0
   GIT_SHALLOW TRUE
+  EXCLUDE_FROM_ALL
 )
 
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk 
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   URL "https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip"
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(pugg json rerun_sdk threadpool Eigen)
-
-FetchContent_GetProperties(rerun_sdk)
-if(NOT rerun_sdk_POPULATED)
-    FetchContent_Populate(rerun_sdk)
-    add_subdirectory(${rerun_sdk_SOURCE_DIR} ${rerun_sdk_BINARY_DIR})
-endif()
 
 FetchContent_Populate(plugin 
   GIT_REPOSITORY https://github.com/pbosetti/mads_plugin.git
