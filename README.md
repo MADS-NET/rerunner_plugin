@@ -33,6 +33,8 @@ cmake --build build --config Release
 cmake --install build --config Release
 ```
 
+**Note**: on MacOS with CMake 4.x the Arrow library cannot be compiled. Currently, the only solution is to separately install Arrow via homebrew (`brew install apache-arrow`), then configure the project with the option `-DRERUN_USE_SYSTEM_ARROW=ON`.
+
 **Note**: on Windows and with CMake versions newer than 4.0, some of the dependent libraries of Eigen won't compile. To solve the problem set the following environment variable before running cmake:
 
 ```powershell

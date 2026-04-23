@@ -28,6 +28,8 @@ else()
 endif()
 
 set(WITH_ABSCISSA FALSE CACHE BOOL "Enable abscissa scale on bar charts (requires rerun_sdk > 0.24.1)")
+set(RERUN_USE_SYSTEM_ARROW OFF CACHE BOOL "Use a system-installed Apache Arrow package instead of letting rerun_sdk build Arrow")
+set(RERUN_HOMEBREW_PREFIX "/opt/homebrew" CACHE PATH "Homebrew prefix used to locate apache-arrow and its CMake dependencies")
 
 # PROJECT SETTINGS #############################################################
 set(CMAKE_CXX_STANDARD 17)
@@ -81,6 +83,40 @@ FetchContent_Declare(rerun_sdk
   URL "https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip"
   EXCLUDE_FROM_ALL
 )
+
+if(RERUN_USE_SYSTEM_ARROW)
+  set(RERUN_DOWNLOAD_AND_BUILD_ARROW OFF CACHE BOOL "Use system Apache Arrow for rerun_sdk" FORCE)
+  set(RERUN_ARROW_LINK_SHARED ON CACHE BOOL "Link rerun_sdk against the shared Arrow library" FORCE)
+
+  if(APPLE AND EXISTS "${RERUN_HOMEBREW_PREFIX}/opt/apache-arrow/lib/cmake/Arrow")
+    set(Arrow_DIR "${RERUN_HOMEBREW_PREFIX}/opt/apache-arrow/lib/cmake/Arrow"
+        CACHE PATH "Path to ArrowConfig.cmake" FORCE)
+
+    set(_rerun_homebrew_prefixes
+        "${RERUN_HOMEBREW_PREFIX}"
+        "${RERUN_HOMEBREW_PREFIX}/opt/apache-arrow"
+        "${RERUN_HOMEBREW_PREFIX}/opt/lz4"
+    )
+    file(GLOB _rerun_homebrew_aws_prefixes "${RERUN_HOMEBREW_PREFIX}/opt/aws*")
+    list(APPEND _rerun_homebrew_prefixes ${_rerun_homebrew_aws_prefixes})
+    list(REMOVE_DUPLICATES _rerun_homebrew_prefixes)
+
+    foreach(_rerun_prefix IN LISTS _rerun_homebrew_prefixes)
+      if(EXISTS "${_rerun_prefix}")
+        list(APPEND CMAKE_PREFIX_PATH "${_rerun_prefix}")
+      endif()
+    endforeach()
+    list(REMOVE_DUPLICATES CMAKE_PREFIX_PATH)
+    set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" CACHE STRING "Prefix path for find_package()" FORCE)
+
+    message(STATUS "Using system Apache Arrow from ${Arrow_DIR}")
+  else()
+    message(FATAL_ERROR
+      "RERUN_USE_SYSTEM_ARROW is ON, but apache-arrow was not found under "
+      "${RERUN_HOMEBREW_PREFIX}/opt/apache-arrow/lib/cmake/Arrow")
+  endif()
+endif()
+
 FetchContent_MakeAvailable(pugg json rerun_sdk threadpool Eigen)
 
 FetchContent_Populate(plugin 
