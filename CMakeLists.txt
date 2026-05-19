@@ -78,10 +78,16 @@ FetchContent_Declare(Eigen
 )
 
 # Download and configure rerun SDK
-FetchContent_Declare(rerun_sdk 
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-  URL "https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip"
+FetchContent_Declare(rerun_sdk
+  URL https://github.com/rerun-io/rerun/releases/download/0.31.4/rerun_cpp_sdk.zip
   EXCLUDE_FROM_ALL
+  # Arrow (a rerun dependency) is downloaded as a tarball, so "git apply" in
+  # rerun's own PATCH_COMMAND always fails silently. We replace it with a
+  # cmake -P script that applies the same fixes without needing git history.
+  # See patches/patch_arrow_cmake4.cmake for details.
+  PATCH_COMMAND ${CMAKE_COMMAND}
+    -DPATCHES_DIR=${CMAKE_CURRENT_SOURCE_DIR}/patches
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/patches/patch_rerun_sdk.cmake
 )
 
 if(RERUN_USE_SYSTEM_ARROW)
