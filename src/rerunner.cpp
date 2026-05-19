@@ -55,6 +55,7 @@ private:
   std::vector<std::string> _acf_keypaths;
   std::vector<std::string> _fft_keypaths;
   std::vector<std::string> _trace_keypaths;
+  std::vector<std::string> _hmat_keypaths;
   MovingWindowStats _stats;
   size_t _window_size = 1000; // Store 10x ACF width for better statistics
   filesystem::path _blueprint;
@@ -213,6 +214,64 @@ public:
       }
     }
 
+    // Reference frames from 4x4 homogeneous matrices
+    for (const auto &keypath : _hmat_keypaths) {
+      json::json_pointer ptr(dot_to_pointer(keypath));
+      const auto &mat = data[ptr];
+      cout << mat.dump(2);
+      // Expect flat array [16] row-major, or array of 4 rows of 4
+      // Normalize to flat row-major double[16]
+      std::array<double, 16> m{};
+      try {
+        if (mat.is_array() && mat.size() == 16) {
+          // flat [m00, m01, ..., m33]
+          for (int i = 0; i < 16; i++) m[i] = mat[i].get<double>();
+        } else if (mat.is_array() && mat.size() == 4 && mat[0].is_array()) {
+          // [[row0], [row1], [row2], [row3]]
+          for (int r = 0; r < 4; r++)
+            for (int c = 0; c < 4; c++)
+              m[r*4+c] = mat[r][c].get<double>();
+        } else {
+          _error = "hmat keypath " + keypath + ": expected 4x4 or flat[16] array";
+          return return_type::error;
+        }
+      } catch (const json::exception &e) {
+        _error = "hmat keypath " + keypath + ": " + e.what();
+        return return_type::error;
+      }
+
+      // Extract columns: rotation axes and translation
+      // Row-major: m[r*4+c]
+      //   col0 = X axis  (m[0],m[4],m[8])
+      //   col1 = Y axis  (m[1],m[5],m[9])
+      //   col2 = Z axis  (m[2],m[6],m[10])
+      //   col3 = origin  (m[3],m[7],m[11])
+      float ax_len = _params.value("h_scale", 1.0f);
+
+      rerun::Position3D origin{
+        (float)m[3] ,
+        (float)m[7] ,
+        (float)m[11]
+      };
+
+      // Three arrows: one per axis
+      _rec->log("frame/" + keypath,
+        rerun::Arrows3D::from_vectors({
+          rerun::Vector3D{(float)m[0]*ax_len, (float)m[4]*ax_len, (float)m[8]*ax_len},   // X
+          rerun::Vector3D{(float)m[1]*ax_len, (float)m[5]*ax_len, (float)m[9]*ax_len},   // Y
+          rerun::Vector3D{(float)m[2]*ax_len, (float)m[6]*ax_len, (float)m[10]*ax_len},  // Z
+        })
+        .with_origins({origin, origin, origin})
+        .with_colors({
+          rerun::Color(255,  40,  40),  // X = red
+          rerun::Color( 40, 220,  40),  // Y = green
+          rerun::Color( 40,  40, 255),  // Z = blue
+        })
+        .with_labels({"X", "Y", "Z"})
+      );
+      logged = true;
+    }
+
     // Process ACF keypaths
     for (const auto &keypath : _acf_keypaths) {
       if (_stats.is_full(keypath)) {
@@ -356,6 +415,26 @@ public:
           _trace_keypaths.push_back(path.get<std::string>());
           // Initialize buffer for this keypath
           // _signal_buffers[path.get<std::string>()];
+        }
+      }
+    }
+
+    // In set_params, add a new param:
+    //_params["hmat_keypaths"] = json::array();  // list of keypaths to 4x4 matrices
+
+    // Load in set_params:
+    _hmat_keypaths.clear();
+    if (_params.contains("hmat_keypaths") && _params["hmat_keypaths"].is_array()) {
+      std::cout << "\ntrovato hmat " << _params["hmat_keypaths"].size() << "\n";
+      for (const auto &path : _params["hmat_keypaths"])
+      {
+         std::cout << "\nvaluto\n";
+        if (path.is_string()){
+          cout << "\naggiunto\n";
+          _hmat_keypaths.push_back(path.get<std::string>());
+          cout << "\naggiunto\n";
+        }else{
+          cout << "\nnon aggiunto\n";
         }
       }
     }
