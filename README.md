@@ -33,6 +33,8 @@ cmake --build build --config Release
 cmake --install build --config Release
 ```
 
+**Note**: on MacOS with CMake 4.x the Arrow library cannot be compiled. Currently, the only solution is to separately install Arrow via homebrew (`brew install apache-arrow`), then configure the project with the option `-DRERUN_USE_SYSTEM_ARROW=ON`.
+
 **Note**: on Windows and with CMake versions newer than 4.0, some of the dependent libraries of Eigen won't compile. To solve the problem set the following environment variable before running cmake:
 
 ```powershell
@@ -50,7 +52,7 @@ We suggest to install it via pip:
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows use `.venv\Scripts\activate
-pip install rerun-sdk==0.27.3
+pip install rerun-sdk==0.31.4
 ````
 
 Note that the SDK version that you specify in the pip installation must match the version of the Rerun SDK used to build the plugin (see `CMakeLists.txt` in the `FetchContent_Declare(rerun_sdk` section). At the moment, some of the rerun-sdk dependencies (arrow library) for rerun-sdk versions newer than 0.27.3 cannot build on cmake 4.x.
