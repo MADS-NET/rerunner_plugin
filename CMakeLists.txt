@@ -157,6 +157,12 @@ macro(add_plugin name)
     add_executable(${name}_main ${SRC_DIR}/${name}.cpp ${plugin_SRCS})
     target_link_libraries(${name}_main PRIVATE pugg ${plugin_LIBS})
     set_target_properties(${name}_main PROPERTIES OUTPUT_NAME ${name})
+    if(WIN32)
+      set_target_properties(${name}_main PROPERTIES
+        ARCHIVE_OUTPUT_NAME ${name}_main
+        PDB_NAME ${name}_main
+      )
+    endif()
     set(${name}_EXEC ${name})
     list(APPEND TARGET_LIST ${name}_main)
   endif()
