@@ -1,3 +1,5 @@
+[![Build and Release](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml/badge.svg)](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml)
+
 # rerunner plugin for MADS
 
 This is a Sink plugin for [MADS](https://github.com/MADS-NET/MADS) that uses [Rerun](https://www.rerun.io/) to visualize time series data.
