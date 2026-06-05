@@ -11,7 +11,7 @@
 # Creation date: 2025-09-08T16:35:50.334+0200
 # NOTICE: MADS Version 1.3.5
 cmake_minimum_required(VERSION 3.28)
-project(rerun VERSION 1.3.5 LANGUAGES CXX)
+project(rerun VERSION 2.1.0 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
@@ -79,7 +79,7 @@ FetchContent_Declare(Eigen
 
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk
-  URL https://github.com/rerun-io/rerun/releases/download/0.31.4/rerun_cpp_sdk.zip
+  URL https://github.com/rerun-io/rerun/releases/download/0.33.0/rerun_cpp_sdk.zip
   EXCLUDE_FROM_ALL
   # Arrow (a rerun dependency) is downloaded as a tarball, so "git apply" in
   # rerun's own PATCH_COMMAND always fails silently. We replace it with a
@@ -211,3 +211,33 @@ else()
     ARCHIVE DESTINATION lib
   )
 endif()
+
+
+# PACKAGE #######################################################################
+string(TOLOWER "${CMAKE_SYSTEM_NAME}" PACKAGE_OS_NAME)
+if(APPLE AND CMAKE_OSX_ARCHITECTURES)
+  list(LENGTH CMAKE_OSX_ARCHITECTURES PACKAGE_OSX_ARCHITECTURES_COUNT)
+  if(PACKAGE_OSX_ARCHITECTURES_COUNT GREATER 1)
+    set(PACKAGE_ARCH_NAME "universal")
+  else()
+    set(PACKAGE_ARCH_NAME "${CMAKE_OSX_ARCHITECTURES}")
+  endif()
+else()
+  set(PACKAGE_ARCH_NAME "${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+if(PACKAGE_ARCH_NAME STREQUAL "")
+  set(PACKAGE_ARCH_NAME "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+endif()
+if(PACKAGE_ARCH_NAME STREQUAL "")
+  set(PACKAGE_ARCH_NAME "unknown")
+endif()
+string(TOLOWER "${PACKAGE_ARCH_NAME}" PACKAGE_ARCH_NAME)
+
+set(CPACK_GENERATOR "ZIP")
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VENDOR "MADS")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+set(CPACK_PACKAGE_FILE_NAME
+  "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${PACKAGE_OS_NAME}-${PACKAGE_ARCH_NAME}")
+include(CPack)
