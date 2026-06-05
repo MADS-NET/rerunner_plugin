@@ -1,0 +1,29 @@
+{
+  "name": "rerunner_plugin",
+  "requirements": {
+    "Common": {
+      "note": [
+        "Requires Python 3.8 or later",
+        "Install Rerun with pip install rerun-sdk==0.33.0",
+        "(preferably in a virtual environment)"
+      ] 
+    },
+    "Windows": {
+      "note": ["Requires Windows 10 or later"],
+      "commands": []
+    },
+    "Linux": {
+      "note": ["Requires glibc 2.17 or later"],
+      "commands": []
+    },
+    "macOS": {
+      "note": [
+        "Requires macOS 10.15 or later",
+        "You might need to remove the quarantine protection on the plugin once installed"
+      ],
+      "commands": [
+        "xattr -d com.apple.quarantine $(mads -p)/lib/rerunner.plugin"
+      ]
+    }
+  }
+}
