@@ -13,7 +13,7 @@
       "commands": []
     },
     "Linux": {
-      "note": ["Requires glibc 2.17 or later"],
+      "note": ["Requires Ubuntu 22.04 or later"],
       "commands": []
     },
     "macOS": {
