@@ -54,12 +54,12 @@ jobs:
           #   platform: ""
           #   osx_architectures: ""
 
-          - name: macOS universal
-            id: macos-universal
+          - name: macOS arm64
+            id: macos-arm64
             runner: macos-14
             generator: Ninja
             platform: ""
-            osx_architectures: x86_64;arm64
+            osx_architectures: ""
 
     steps:
       - name: Checkout

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <rerun.hpp>
+#include <utility>
 #include <vector>
 
 using json = nlohmann::json;
@@ -188,10 +189,21 @@ public:
     rerun::Collection<rerun::Vec3D> torso_col(torso);
     rerun::Collection<rerun::Vec3D> head_col(head);
     rerun::Collection<rerun::Vec3D> neck_col(neck);
-    _rec->log("skeleton/legs", rerun::LineStrips3D({legs_col}));
-    _rec->log("skeleton/arms", rerun::LineStrips3D({arms_col}));
-    _rec->log("skeleton/torso", rerun::LineStrips3D({torso_col}));
-    _rec->log("skeleton/head", rerun::LineStrips3D({head_col, neck_col}));
+
+    rerun::Collection<rerun::components::LineStrip3D> legs_strips{
+        rerun::components::LineStrip3D(std::move(legs_col))};
+    rerun::Collection<rerun::components::LineStrip3D> arms_strips{
+        rerun::components::LineStrip3D(std::move(arms_col))};
+    rerun::Collection<rerun::components::LineStrip3D> torso_strips{
+        rerun::components::LineStrip3D(std::move(torso_col))};
+    rerun::Collection<rerun::components::LineStrip3D> head_strips{
+        rerun::components::LineStrip3D(std::move(head_col)),
+        rerun::components::LineStrip3D(std::move(neck_col))};
+
+    _rec->log("skeleton/legs", rerun::LineStrips3D(std::move(legs_strips)));
+    _rec->log("skeleton/arms", rerun::LineStrips3D(std::move(arms_strips)));
+    _rec->log("skeleton/torso", rerun::LineStrips3D(std::move(torso_strips)));
+    _rec->log("skeleton/head", rerun::LineStrips3D(std::move(head_strips)));
   }
 
   // Points radius
