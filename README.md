@@ -1,4 +1,5 @@
-[![Build and Release](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml/badge.svg)](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml) ![mads package](https://img.shields.io/badge/mads_package-available-blue)
+[![Build and Release](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml/badge.svg)](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml) ![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FMADS-NET%2F.github%2Fmain%2Fprofile%2Fpackages.json&query=%24.packages.%5B'rerunner.plugin'%5D.type&label=mads%20package)
+
 
 # rerunner plugin for MADS
 
