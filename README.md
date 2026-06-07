@@ -1,4 +1,4 @@
-[![Build and Release](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml/badge.svg)](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml)
+[![Build and Release](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml/badge.svg)](https://github.com/MADS-NET/rerunner_plugin/actions/workflows/release.yml) ![mads package](https://img.shields.io/badge/mads_package-available-blue)
 
 # rerunner plugin for MADS
 
@@ -17,7 +17,16 @@ Currently, the supported platforms are:
 * **Windows**
 
 
-## Installation
+## Package install
+
+with MADS v2.1.1 or later, install with:
+
+```bash
+mads package --install rerunner.plugin
+```
+
+
+## Install from binaries
 
 Linux and MacOS:
 
