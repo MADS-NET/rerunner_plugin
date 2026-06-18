@@ -5,49 +5,56 @@
 #include <iomanip>
 #include "moving_window_stats.hpp"
 
-bool MovingWindowStats::add(std::string const key, double value) {
-    auto &buffer = _signal_buffers[key];
-    auto &sum = _sum[key];
-    auto &sum_sq = _sum_sq[key];
+bool MovingWindowStats::add(std::string const &key, double value) {
+    Signal *sp;
+    {
+        // Only the map lookup needs locking. Once we hold a stable pointer to
+        // this key's Signal, the rest of the work touches that object alone,
+        // which no concurrent add() (using a different key) can reach.
+        std::lock_guard<std::mutex> lock(_mtx);
+        sp = &ensure(key);
+    }
+    Signal &s = *sp;
+
+    auto &buffer = s.buffer;
 
     // push new value
     buffer.push_back(value);
-    sum += value;
-    sum_sq += value * value;
+    s.sum += value;
+    s.sum_sq += value * value;
 
     if (buffer.size() > _size) {
         double old = buffer.front();
         buffer.pop_front();
-        sum -= old;
-        sum_sq -= old * old;
+        s.sum -= old;
+        s.sum_sq -= old * old;
     }
 
     size_t n = buffer.size();
 
     // recurrent mean & stdev
-    double mean = sum / n;
-    _mean[key] = mean;
+    s.mean = s.sum / n;
 
-    double variance = (sum_sq / n) - mean * mean;
+    double variance = (s.sum_sq / n) - s.mean * s.mean;
     if (variance < 0) variance = 0; // numerical guard
-    _stdev[key] = std::sqrt(variance);
+    s.stdev = std::sqrt(variance);
 
     // compute acf and fft only if buffer is full
     if (buffer.size() == _size) {
-        calculate_acf(key);
-        calculate_fft(key);
+        calculate_acf(s);
+        calculate_fft(s);
         return true;
     } else {
         return false;
     }
 }
 
-void MovingWindowStats::calculate_acf(std::string const &key) {
-    const auto &buffer = _signal_buffers[key];
+void MovingWindowStats::calculate_acf(Signal &s) {
+    const auto &buffer = s.buffer;
     size_t N = buffer.size();
     std::vector<double> acf(N, 0.0);
 
-    double mean = _mean[key];
+    double mean = s.mean;
     double denom = 0.0;
     for (size_t i = 0; i < N; i++) {
         denom += (buffer[i] - mean) * (buffer[i] - mean);
@@ -61,11 +68,11 @@ void MovingWindowStats::calculate_acf(std::string const &key) {
         acf[lag] = denom > 0 ? num / denom : 0.0;
     }
 
-    _signal_acf[key] = std::move(acf);
+    s.acf = std::move(acf);
 }
 
-void MovingWindowStats::calculate_fft(std::string const &key) {
-    const auto &buffer = _signal_buffers[key];
+void MovingWindowStats::calculate_fft(Signal &s) {
+    const auto &buffer = s.buffer;
     size_t N = buffer.size();
     std::vector<double> fft_magnitude(N, 0.0);
 
@@ -81,7 +88,7 @@ void MovingWindowStats::calculate_fft(std::string const &key) {
 
     // Store only the first N/2 magnitudes (for real signals, FFT is symmetric)
     std::vector<double> fft_half(fft_magnitude.begin(), fft_magnitude.begin() + N / 2);
-    _signal_fft[key] = std::move(fft_half);
+    s.fft = std::move(fft_half);
 }
 
 #ifdef MOVING_WINDOW_STATS_TEST

@@ -27,10 +27,12 @@
 #include <deque>
 #include <filesystem>
 #include <future>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <rerun.hpp>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // other includes as needed here
@@ -165,8 +167,11 @@ public:
       for (const auto &keypath : _keypaths) {
         if (auto value = get_numeric_value(data, keypath)) {
           _rec->log("data/" + keypath, rerun::Scalars(*value));
+          // Capture by value: the task runs asynchronously on a pool thread,
+          // long after this loop iteration (and its `keypath`/`value` locals)
+          // has gone out of scope.
           _futures.push_back(_pool.submit_task(
-              [&] { return _stats.add(keypath, value.value_or(0)); }));
+              [this, keypath, val = *value] { return _stats.add(keypath, val); }));
         }
       }
       for (const auto &f : _futures) {
@@ -311,14 +316,29 @@ public:
       _blueprint = _params.value("blueprint", "") + " (not found)";
     }
 
-    // Load the keypaths configuration
+    // Load the keypaths configuration. Duplicates are dropped: each keypath
+    // owns one stats Signal, and the parallel path runs one add() task per
+    // keypath, so two tasks sharing a key would race on the same object.
     _keypaths.clear();
     if (_params.contains("keypaths") && _params["keypaths"].is_array()) {
+      std::unordered_set<std::string> seen;
       for (const auto &path : _params["keypaths"]) {
         if (path.is_string()) {
-          _keypaths.push_back(path.get<std::string>());
+          auto keypath = path.get<std::string>();
+          if (!seen.insert(keypath).second) {
+            std::cerr << "[rerunner] WARNING: duplicate keypath \"" << keypath
+                      << "\" ignored" << std::endl;
+            continue;
+          }
+          _keypaths.push_back(std::move(keypath));
         }
       }
+    }
+
+    // Pre-register every keypath so the parallel add() tasks only ever look up
+    // (never insert into) the stats map, keeping concurrent calls race-free.
+    for (const auto &keypath : _keypaths) {
+      _stats.register_key(keypath);
     }
 
     // Load ACF configuration
