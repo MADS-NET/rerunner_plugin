@@ -156,8 +156,27 @@ public:
 
     dt = time_seconds - prev_time;
 
-    // embed the input json within a parent object named as the topic
-    json data = json{{topic, std::move(input)}};
+    // embed the input json within nested objects, one per topic segment.
+    // Topics may contain '/' (e.g. "test/my_source"); each segment becomes a
+    // nesting level so that keypaths such as "/test/my_source/values/x"
+    // resolve correctly via JSON pointer semantics (where '/' is the path
+    // separator). A slash-free topic yields a single nesting level, matching
+    // the previous behaviour.
+    json data;
+    {
+      json *node = &data;
+      string::size_type start = 0, slash;
+      do {
+        slash = topic.find('/', start);
+        string segment = topic.substr(start, slash - start);
+        if (slash == string::npos) {
+          (*node)[segment] = input;
+        } else {
+          node = &((*node)[segment]);
+          start = slash + 1;
+        }
+      } while (slash != string::npos);
+    }
 
 
     // Extract values for each keypath and send to rerun
