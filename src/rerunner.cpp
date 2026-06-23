@@ -57,6 +57,19 @@ private:
   std::vector<std::string> _acf_keypaths;
   std::vector<std::string> _fft_keypaths;
   std::vector<std::string> _trace_keypaths;
+
+  // The configured keypaths span every subscribed topic, but each message
+  // carries a single topic. This caches, per topic actually seen, just the
+  // keypaths that belong to it, so a message only ever probes its own keypaths
+  // instead of all of them.
+  struct TopicKeypaths {
+    std::vector<std::string> scalars;
+    std::vector<std::string> acf;
+    std::vector<std::string> fft;
+    std::vector<std::string> traces;
+  };
+  std::unordered_map<std::string, TopicKeypaths> _topic_cache;
+
   MovingWindowStats _stats;
   size_t _window_size = 1000; // Store 10x ACF width for better statistics
   filesystem::path _blueprint;
@@ -112,16 +125,51 @@ private:
                                           const std::string &dot_path) {
     json::json_pointer ptr = dot_to_pointer(dot_path);
 
-    try {
-      const auto &value = j[ptr];
-
-      if (value.is_number()) {
-        return value.get<double>();
-      }
-    } catch (const json::exception &e) {
-      // Path doesn't exist or other JSON error
+    // Guard with contains() before dereferencing. On a *const* json,
+    // operator[](json_pointer) resolves via get_unchecked(), whose object
+    // branch performs an unchecked find()->second: for a missing key that
+    // dereferences the map's end() iterator (the assert is compiled out under
+    // NDEBUG) -> undefined behaviour / segfault, NOT a catchable exception.
+    // This is the common case here: each message carries a single topic, yet
+    // we probe every keypath, so keypaths belonging to other subscribed topics
+    // are absent. contains() resolves the pointer safely and cheaply (no
+    // exceptions on the miss path).
+    if (!j.contains(ptr)) {
+      return std::nullopt;
+    }
+    const json &value = j.at(ptr);
+    if (value.is_number()) {
+      return value.get<double>();
     }
     return std::nullopt;
+  }
+
+  // Return the keypaths belonging to `topic`, computing and caching the subset
+  // on first sight. A keypath belongs to a topic when its JSON-pointer form is
+  // prefixed by "/<topic>/" (the topic segments are the outer nesting levels of
+  // `data`). Called single-threaded from load_data, before any pool task is
+  // submitted, so the cache needs no locking.
+  const TopicKeypaths &keypaths_for_topic(const std::string &topic) {
+    auto it = _topic_cache.find(topic);
+    if (it != _topic_cache.end()) {
+      return it->second;
+    }
+    const std::string prefix = "/" + topic + "/";
+    auto belongs = [&](const std::string &keypath) {
+      const std::string ptr = dot_to_pointer(keypath).to_string();
+      return ptr.size() > prefix.size() &&
+             ptr.compare(0, prefix.size(), prefix) == 0;
+    };
+    TopicKeypaths tk;
+    for (const auto &kp : _keypaths)
+      if (belongs(kp)) tk.scalars.push_back(kp);
+    for (const auto &kp : _acf_keypaths)
+      if (belongs(kp)) tk.acf.push_back(kp);
+    for (const auto &kp : _fft_keypaths)
+      if (belongs(kp)) tk.fft.push_back(kp);
+    for (const auto &kp : _trace_keypaths)
+      if (belongs(kp)) tk.traces.push_back(kp);
+    return _topic_cache.emplace(topic, std::move(tk)).first->second;
   }
 
 public:
@@ -178,12 +226,14 @@ public:
       } while (slash != string::npos);
     }
 
+    // Only this topic's keypaths can resolve in `data`; skip all the others.
+    const TopicKeypaths &tk = keypaths_for_topic(topic);
 
     // Extract values for each keypath and send to rerun
     if (_params["parallelize"].get<bool>()) {
       _futures.clear();
-      _futures.reserve(_keypaths.size());
-      for (const auto &keypath : _keypaths) {
+      _futures.reserve(tk.scalars.size());
+      for (const auto &keypath : tk.scalars) {
         if (auto value = get_numeric_value(data, keypath)) {
           _rec->log("data/" + keypath, rerun::Scalars(*value));
           // Capture by value: the task runs asynchronously on a pool thread,
@@ -197,7 +247,7 @@ public:
         f.wait();
       }
       _futures.clear();
-      for (const auto &keypath : _keypaths) {
+      for (const auto &keypath : tk.scalars) {
         _rec->log("stats/mean/" + keypath,
                   rerun::Scalars(_stats.mean(keypath)));
         _rec->log("stats/stdev/" + keypath,
@@ -207,7 +257,7 @@ public:
         logged = true;
       }
     } else {
-      for (const auto &keypath : _keypaths) {
+      for (const auto &keypath : tk.scalars) {
         if (auto value = get_numeric_value(data, keypath)) {
           _stats.add(keypath, value.value_or(0));
           _rec->log("data/" + keypath, rerun::Scalars(*value));
@@ -223,13 +273,19 @@ public:
     }
 
     // Traces
-    for (const auto &keypath : _trace_keypaths) {
+    for (const auto &keypath : tk.traces) {
       json::json_pointer ptr(dot_to_pointer(keypath));
-      if (data[ptr].is_array() && data[ptr].size() == 3) {
-        _rec->log("trace/" + keypath, rerun::Points3D(rerun::Position3D(data[ptr])));
+      // Guard with contains() to avoid the non-const operator[] silently
+      // creating the missing path in `data`.
+      if (!data.contains(ptr)) {
+        continue;
+      }
+      const json &point = data.at(ptr);
+      if (point.is_array() && point.size() == 3) {
+        _rec->log("trace/" + keypath, rerun::Points3D(rerun::Position3D(point)));
         logged = true;
-      } else if (data[ptr].is_array() && data[ptr].size() == 2) {
-        _rec->log("trace/" + keypath, rerun::Points2D(rerun::Position2D(data[ptr])));
+      } else if (point.is_array() && point.size() == 2) {
+        _rec->log("trace/" + keypath, rerun::Points2D(rerun::Position2D(point)));
         logged = true;
       } else {
         _error = "Trace keypath " + keypath + " does not point to a valid 2D or 3D point array";
@@ -238,7 +294,7 @@ public:
     }
 
     // Process ACF keypaths
-    for (const auto &keypath : _acf_keypaths) {
+    for (const auto &keypath : tk.acf) {
       if (_stats.is_full(keypath)) {
         _rec->log("acf_plot/" + keypath,
                   rerun::BarChart::f64(_stats.acf(keypath)));
@@ -247,7 +303,7 @@ public:
     }
 
     // Process FFT keypaths
-    if (!_fft_keypaths.empty()) {
+    if (!tk.fft.empty()) {
       size_t len = _window_size / 2.0;
 #ifdef WITH_ABSCISSA
       vector<double> abscissa;
@@ -257,7 +313,7 @@ public:
       }
       auto abscissa_data = rerun::TensorData(rerun::Collection{len}, abscissa);
 #endif
-      for (const auto &keypath : _fft_keypaths) {
+      for (const auto &keypath : tk.fft) {
         if (_stats.is_full(keypath)) {
           _rec->log("fft_plot/" + keypath,
 #ifdef WITH_ABSCISSA
@@ -320,6 +376,9 @@ public:
     _params.merge_patch(params);
     _window_size = _params.value("window_size", 200);
     _stats.reset(_window_size);
+
+    // Keypaths are about to be reloaded; drop any cached per-topic grouping.
+    _topic_cache.clear();
 
     _rec = std::make_shared<rerun::RecordingStream>("MADS " + _params.value("agent_name", "rerunner (generic)"));
     _rec->spawn().exit_on_failure();
