@@ -233,34 +233,66 @@ public:
     if (_params["parallelize"].get<bool>()) {
       _futures.clear();
       _futures.reserve(tk.scalars.size());
+      // Only numeric scalars carry statistics; remember which ones were present
+      // in this message so the stats pass below runs solely over them, instead
+      // of logging meaningless zeros for absent or non-numeric (flag/state)
+      // keypaths.
+      vector<string> numeric_keypaths;
       for (const auto &keypath : tk.scalars) {
-        if (auto value = get_numeric_value(data, keypath)) {
-          _rec->log("data/" + keypath, rerun::Scalars(*value));
+        json::json_pointer ptr = dot_to_pointer(keypath);
+        // Guard with contains() (see get_numeric_value): on a const json the
+        // unchecked operator[] dereferences end() for a missing key -> UB.
+        if (!data.contains(ptr)) {
+          continue;
+        }
+        const json &value = data.at(ptr);
+        if (value.is_number()) {
+          double num = value.get<double>();
+          _rec->log("data/" + keypath, rerun::Scalars(num));
+          numeric_keypaths.push_back(keypath);
           // Capture by value: the task runs asynchronously on a pool thread,
-          // long after this loop iteration (and its `keypath`/`value` locals)
-          // has gone out of scope.
+          // long after this loop iteration (and its locals) has gone out of
+          // scope.
           _futures.push_back(_pool.submit_task(
-              [this, keypath, val = *value] { return _stats.add(keypath, val); }));
+              [this, keypath, val = num] { return _stats.add(keypath, val); }));
+          logged = true;
+        } else if (value.is_boolean()) {
+          // Booleans carry no statistics; log as a 0/1 step plot under flags/.
+          _rec->log("flags/" + keypath,
+                    rerun::Scalars(value.get<bool>() ? 1.0 : 0.0));
+          logged = true;
+        } else if (value.is_string()) {
+          _rec->log("states/" + keypath,
+                    rerun::TextLog(value.get<string>()));
+          logged = true;
         }
       }
       for (const auto &f : _futures) {
         f.wait();
       }
       _futures.clear();
-      for (const auto &keypath : tk.scalars) {
+      for (const auto &keypath : numeric_keypaths) {
         _rec->log("stats/mean/" + keypath,
                   rerun::Scalars(_stats.mean(keypath)));
         _rec->log("stats/stdev/" + keypath,
                   rerun::Scalars(_stats.stdev(keypath)));
         _rec->log("stats/std_uncertainty/" + keypath,
                   rerun::Scalars(_stats.st_uncertainty(keypath)));
-        logged = true;
       }
     } else {
       for (const auto &keypath : tk.scalars) {
-        if (auto value = get_numeric_value(data, keypath)) {
-          _stats.add(keypath, value.value_or(0));
-          _rec->log("data/" + keypath, rerun::Scalars(*value));
+        json::json_pointer ptr = dot_to_pointer(keypath);
+        // Guard with contains() (see get_numeric_value): on a const json the
+        // unchecked operator[] dereferences end() for a missing key -> UB.
+        // Most keypaths belong to other topics and are absent here.
+        if (!data.contains(ptr)) {
+          continue;
+        }
+        const json &value = data.at(ptr);
+        if (value.is_number()) {
+          double num = value.get<double>();
+          _stats.add(keypath, num);
+          _rec->log("data/" + keypath, rerun::Scalars(num));
           _rec->log("stats/mean/" + keypath,
                     rerun::Scalars(_stats.mean(keypath)));
           _rec->log("stats/stdev/" + keypath,
@@ -268,7 +300,16 @@ public:
           _rec->log("stats/std_uncertainty/" + keypath,
                     rerun::Scalars(_stats.st_uncertainty(keypath)));
           logged = true;
-        }
+        } else if (value.is_boolean()) {
+          // Booleans carry no statistics; log as a 0/1 step plot under flags/.
+          _rec->log("flags/" + keypath,
+                    rerun::Scalars(value.get<bool>() ? 1.0 : 0.0));
+          logged = true;
+        } else if (value.is_string()) {
+          _rec->log("states/" + keypath,
+                    rerun::TextLog(value.get<string>()));
+          logged = true;
+        } 
       }
     }
 
