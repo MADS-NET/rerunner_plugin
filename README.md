@@ -101,6 +101,14 @@ With Rerun versions supporting the abscissa (method `rerun::BarChart::with_absci
 cmake -Bbuild -DWITH_ABSCISSA:BOOL=FALSE
 ```
 
+## How Rerun gets the data
+
+The Rerun viewer receives the data on a path that depends on the type:
+
+* Numeric values: under the root path `data/`
+* Boolean values: under the root path `flags/`
+* Text values: under the root path `states/`
+
 ## Blueprints
 
 Rerun viewer supports **blueprints**: those are files describing the layout of panels and controls in the viewer. You can configure the layout to your liking, then save the corresponding blueprint (from the menu with the Rerun logo on the window top left corner, select *save blueprint...*). Then add a `blueprint` key to the INI file (see below) pointing to the `.rbl` file.

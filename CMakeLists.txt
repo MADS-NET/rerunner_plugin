@@ -11,7 +11,7 @@
 # Creation date: 2025-09-08T16:35:50.334+0200
 # NOTICE: MADS Version 1.3.5
 cmake_minimum_required(VERSION 3.28)
-project(rerun VERSION 2.2.3 LANGUAGES CXX)
+project(rerun VERSION 2.2.4 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
