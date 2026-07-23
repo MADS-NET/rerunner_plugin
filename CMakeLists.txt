@@ -46,7 +46,7 @@ include(FetchContent)
 # pugg is for the plugin system
 FetchContent_Declare(pugg 
   GIT_REPOSITORY https://github.com/pbosetti/pugg.git
-  GIT_TAG        1.1.0
+  GIT_TAG        1.2.0
   GIT_SHALLOW    TRUE
   EXCLUDE_FROM_ALL
 )
@@ -54,7 +54,7 @@ FetchContent_Declare(pugg
 set(BUILD_TESTING OFF CACHE INTERNAL "")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 FetchContent_Declare(json
-  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   EXCLUDE_FROM_ALL
 )
@@ -127,18 +127,18 @@ FetchContent_MakeAvailable(pugg json rerun_sdk threadpool Eigen)
 
 FetchContent_Populate(plugin 
   GIT_REPOSITORY https://github.com/pbosetti/mads_plugin.git
-  GIT_TAG        v2.3-P7
+  GIT_TAG        v2.4-P8
   GIT_SHALLOW    TRUE
   SUBBUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/plugin-subbuild
   SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/plugin-src
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/plugin-build
 )
 
-include_directories(
+include_directories(BEFORE
   ${plugin_SOURCE_DIR}/src
   ${rerun_sdk_SOURCE_DIR}/src
   ${threadpool_SOURCE_DIR}/include
-
+  ${json_SOURCE_DIR}/include
 )
 
 # MACROS #######################################################################

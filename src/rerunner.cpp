@@ -309,7 +309,23 @@ public:
           _rec->log("states/" + keypath,
                     rerun::TextLog(value.get<string>()));
           logged = true;
-        } 
+        } else if (value.is_object()) {
+          for (const auto &[subkey, subvalue] : value.items()) {
+            if (subvalue.is_number()) {
+              double num = subvalue.get<double>();
+              _stats.add(keypath + "." + subkey, num);
+              _rec->log("data/" + keypath + "/" + subkey, rerun::Scalars(num));
+              _rec->log("stats/mean/" + keypath + "/" + subkey,
+                        rerun::Scalars(_stats.mean(keypath + "/" + subkey)));
+              _rec->log("stats/stdev/" + keypath + "/" + subkey,
+                        rerun::Scalars(_stats.stdev(keypath + "/" + subkey)));
+              _rec->log("stats/std_uncertainty/" + keypath + "/" + subkey,
+                        rerun::Scalars(
+                            _stats.st_uncertainty(keypath + "/" + subkey)));
+              logged = true;
+            }
+          }
+        }
       }
     }
 
@@ -554,7 +570,7 @@ public:
                 |___/
 Enable the class as plugin
 */
-INSTALL_SINK_DRIVER(RerunnerPlugin, json)
+MADS_REGISTER_PLUGINS(RerunnerPlugin)
 
 /*
                   _

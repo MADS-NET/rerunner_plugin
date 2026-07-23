@@ -7,3 +7,4 @@ checks.json
 tools/*
 .venv
 *.rrd
+*.bak
