@@ -5,7 +5,7 @@
       "note": [
         "Requires MADS v2.4.0 or later",
         "Requires Python 3.8 or later",
-        "Install Rerun with pip install rerun-sdk==0.33.0",
+        "Install Rerun with pip install rerun-sdk==0.35.0",
         "(preferably in a virtual environment)"
       ] 
     },

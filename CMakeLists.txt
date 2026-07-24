@@ -79,7 +79,7 @@ FetchContent_Declare(Eigen
 
 # Download and configure rerun SDK
 FetchContent_Declare(rerun_sdk
-  URL https://github.com/rerun-io/rerun/releases/download/0.33.0/rerun_cpp_sdk.zip
+  URL https://github.com/rerun-io/rerun/releases/download/0.35.0/rerun_cpp_sdk.zip
   EXCLUDE_FROM_ALL
   # Arrow (a rerun dependency) is downloaded as a tarball, so "git apply" in
   # rerun's own PATCH_COMMAND always fails silently. We replace it with a
