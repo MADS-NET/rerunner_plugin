@@ -8,3 +8,4 @@ tools/*
 .venv
 *.rrd
 *.bak
+.DS_Store

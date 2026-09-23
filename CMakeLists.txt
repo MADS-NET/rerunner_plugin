@@ -11,7 +11,7 @@
 # Creation date: 2025-09-08T16:35:50.334+0200
 # NOTICE: MADS Version 1.3.5
 cmake_minimum_required(VERSION 3.28)
-project(rerun VERSION 2.3.0 LANGUAGES CXX)
+project(rerun VERSION 2.5.0 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
@@ -125,17 +125,17 @@ endif()
 
 FetchContent_MakeAvailable(pugg json rerun_sdk threadpool Eigen)
 
-FetchContent_Populate(plugin 
+FetchContent_Declare(plugin 
   GIT_REPOSITORY https://github.com/pbosetti/mads_plugin.git
-  GIT_TAG        v2.4-P8
+  GIT_TAG        v2.5-P8
   GIT_SHALLOW    TRUE
   SUBBUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/plugin-subbuild
   SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/plugin-src
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/plugin-build
 )
+FetchContent_MakeAvailable(plugin)
 
 include_directories(BEFORE
-  ${plugin_SOURCE_DIR}/src
   ${rerun_sdk_SOURCE_DIR}/src
   ${threadpool_SOURCE_DIR}/include
   ${json_SOURCE_DIR}/include
@@ -190,7 +190,7 @@ endif()
 include_directories(${json_SOURCE_DIR}/include)
 
 # These plugins are always build and use for testing
-add_plugin(rerunner LIBS rerun_sdk  Eigen3::Eigen SRCS ${SRC_DIR}/moving_window_stats.cpp)
+add_plugin(rerunner LIBS rerun_sdk MADS::Plugin Eigen3::Eigen SRCS ${SRC_DIR}/moving_window_stats.cpp)
 add_dependencies(rerunner rerun_sdk)
 if(WITH_ABSCISSA)
   target_compile_definitions(rerunner PUBLIC WITH_ABSCISSA)
