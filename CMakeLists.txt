@@ -241,3 +241,18 @@ set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
 set(CPACK_PACKAGE_FILE_NAME
   "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${PACKAGE_OS_NAME}-${PACKAGE_ARCH_NAME}")
 include(CPack)
+# Opt-in tests for reference-frame geometry (no viewer required).
+option(RERUNNER_BUILD_TESTS "Build reference-frame tests" OFF)
+if(RERUNNER_BUILD_TESTS)
+  enable_testing()
+  add_executable(reference_frame_test tests/reference_frame_test.cpp)
+  target_include_directories(reference_frame_test PRIVATE ${SRC_DIR})
+  target_link_libraries(reference_frame_test PRIVATE nlohmann_json::nlohmann_json)
+  add_test(NAME reference_frame COMMAND reference_frame_test)
+  add_executable(reference_frame_plugin_test
+    tests/reference_frame_plugin_test.cpp ${SRC_DIR}/moving_window_stats.cpp)
+  target_link_libraries(reference_frame_plugin_test PRIVATE
+    pugg rerun_sdk MADS::Plugin Eigen3::Eigen)
+  add_test(NAME reference_frame_plugin COMMAND reference_frame_plugin_test)
+  set_tests_properties(reference_frame_plugin PROPERTIES ENVIRONMENT "RERUN=off")
+endif()

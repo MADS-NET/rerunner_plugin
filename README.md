@@ -149,3 +149,59 @@ All settings are optional; if omitted, the default values are used.
 The file `example.csv` contains example data that can be used to test the plugin. You can replay this data using the `replay_plugin` plugin in MADS (see <https://github.com/MADS-NET/replay_plugin>), and visualize it using the `rerun_play` plugin.
 
 ---
+## 3D reference frames
+
+Reference-frame visualization is ported from
+[alfatave/rerunner_plugin](https://github.com/alfatave/rerunner_plugin/commit/33f4660)
+onto the current official plugin (MADS v2.5-P8, Rerun SDK 0.35.0).
+
+Configure matrix keypaths and the displayed axis length:
+
+```toml
+[rerunner]
+sub_topic = ["robot"]
+hmat_keypaths = ["/robot/pose"]
+h_scale = 0.2
+```
+
+For example, send this JSON on topic `robot`:
+
+```json
+{
+  "timecode": 1.0,
+  "pose": [
+    [0, -1, 0, 1],
+    [1,  0, 0, 2],
+    [0,  0, 1, 3],
+    [0,  0, 0, 1]
+  ]
+}
+```
+
+This draws a frame at `(1, 2, 3)` rotated 90 degrees about Z, with
+red X, green Y, and blue Z arrows labeled accordingly. Add a 3D view in
+Rerun and include the `frame/` subtree (the example appears at
+`frame/robot/pose`). Frames use the same `time` timeline as other data.
+
+Matrices can also be flat arrays of 16 numbers in **row-major** order.
+The first three columns give the axes; the fourth column gives the origin.
+The last row must be `[0, 0, 0, 1]` (tolerance `1e-6`). All entries and
+resulting coordinates must be finite and representable by the viewer.
+The rotation block is used as supplied, without orthonormalization.
+
+`h_scale` defaults to `1.0` and must be finite and positive. It scales only
+the arrows, not the translation; use consistent units for all 3D entities.
+The skeleton's `3D_scale` setting does not affect reference frames.
+`hmat_keypaths` defaults to an empty list, so the feature is opt-in.
+Legacy dot paths such as `robot.pose` and slash-containing topics such as
+`robot/arm` (keypath `/robot/arm/pose`) are supported. Messages from other
+topics and missing matrix fields are skipped. Present but malformed matrices
+return a plugin error identifying the keypath.
+
+To run the geometry and plugin integration tests without launching a viewer:
+
+```sh
+cmake -S . -B build -DRERUNNER_BUILD_TESTS=ON
+cmake --build build --target reference_frame_test reference_frame_plugin_test
+ctest --test-dir build --output-on-failure
+```
