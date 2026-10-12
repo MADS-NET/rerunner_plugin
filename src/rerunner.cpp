@@ -20,6 +20,7 @@
 
 #include "moving_window_stats.hpp"
 #include "skeleton.hpp"
+#include "reference_frame.hpp"
 #include <BS_thread_pool.hpp>
 #include <array>
 #include <chrono>
@@ -57,6 +58,8 @@ private:
   std::vector<std::string> _acf_keypaths;
   std::vector<std::string> _fft_keypaths;
   std::vector<std::string> _trace_keypaths;
+  std::vector<std::string> _hmat_keypaths;
+  float _h_scale = 1.0f;
 
   // The configured keypaths span every subscribed topic, but each message
   // carries a single topic. This caches, per topic actually seen, just the
@@ -67,6 +70,7 @@ private:
     std::vector<std::string> acf;
     std::vector<std::string> fft;
     std::vector<std::string> traces;
+    std::vector<std::string> frames;
   };
   std::unordered_map<std::string, TopicKeypaths> _topic_cache;
 
@@ -172,6 +176,9 @@ private:
     for (const auto &kp : _trace_keypaths)
       if (belongs(kp))
         tk.traces.push_back(kp);
+    for (const auto &kp : _hmat_keypaths)
+      if (belongs(kp))
+        tk.frames.push_back(kp);
     return _topic_cache.emplace(topic, std::move(tk)).first->second;
   }
 
@@ -205,6 +212,8 @@ public:
                          .count();
     }
 
+    // Apply the timestamp before logging any entities in this message.
+    _rec->set_time_duration_secs("time", time_seconds);
     dt = time_seconds - prev_time;
 
     // embed the input json within nested objects, one per topic segment.
@@ -354,6 +363,36 @@ public:
       }
     }
 
+    // Reference frames share the topic filtering and optional-field semantics
+    // of traces. Axes are the columns of the homogeneous transform.
+    for (const auto &keypath : tk.frames) {
+      const auto ptr = dot_to_pointer(keypath);
+      if (!data.contains(ptr)) {
+        continue;
+      }
+      try {
+        const auto frame = reference_frame::from_matrix(data.at(ptr), _h_scale);
+        const rerun::Position3D origin{
+            frame.origin[0], frame.origin[1], frame.origin[2]};
+        _rec->log(
+            "frame/" + keypath,
+            rerun::Arrows3D::from_vectors({
+                rerun::Vector3D{frame.axes[0][0], frame.axes[0][1], frame.axes[0][2]},
+                rerun::Vector3D{frame.axes[1][0], frame.axes[1][1], frame.axes[1][2]},
+                rerun::Vector3D{frame.axes[2][0], frame.axes[2][1], frame.axes[2][2]},
+            })
+                .with_origins({origin, origin, origin})
+                .with_colors({rerun::Color(255, 40, 40),
+                              rerun::Color(40, 220, 40),
+                              rerun::Color(40, 40, 255)})
+                .with_labels({"X", "Y", "Z"}));
+        logged = true;
+      } catch (const std::exception &e) {
+        _error = "hmat keypath " + keypath + ": " + e.what();
+        return return_type::error;
+      }
+    }
+
     // Process ACF keypaths
     for (const auto &keypath : tk.acf) {
       if (_stats.is_full(keypath)) {
@@ -405,8 +444,6 @@ public:
       }
       prev_time = time_seconds;
       n++;
-      // Set the current time for this batch of data
-      _rec->set_time_duration_secs("time", time_seconds);
       return return_type::retry;
     } else
       return return_type::success;
@@ -425,6 +462,8 @@ public:
     _params["acf_keypaths"] = json::array();   // empty array by default
     _params["fft_keypaths"] = json::array();   // empty array by default
     _params["trace_keypaths"] = json::array(); // empty array by default
+    _params["hmat_keypaths"] = json::array();
+    _params["h_scale"] = 1.0f;                 // reference-frame axis length
     _params["window_size"] = 100;              // default ACF width
     _params["skeleton"] = string();            // empty string by default
     _params["3D_scale"] = 0.001;               // default scale for 3D data
@@ -435,6 +474,24 @@ public:
 
     // then merge the defaults with the actually provided parameters
     _params.merge_patch(params);
+    // Validate before starting the viewer or caching keypaths.
+    _h_scale = _params.at("h_scale").get<float>();
+    reference_frame::validate_scale(_h_scale);
+    _hmat_keypaths.clear();
+    if (!_params.at("hmat_keypaths").is_array()) {
+      throw std::invalid_argument("hmat_keypaths must be an array of strings");
+    }
+    std::unordered_set<std::string> frame_paths;
+    for (const auto &path : _params.at("hmat_keypaths")) {
+      if (!path.is_string() || path.get<std::string>().empty()) {
+        throw std::invalid_argument("hmat_keypaths entries must be non-empty strings");
+      }
+      auto keypath = path.get<std::string>();
+      const auto pointer = dot_to_pointer(keypath);
+      if (frame_paths.insert(pointer.to_string()).second) {
+        _hmat_keypaths.push_back(std::move(keypath));
+      }
+    }
     _window_size = _params.value("window_size", 200);
     _stats.reset(_window_size);
 
@@ -560,6 +617,9 @@ public:
          _fft_keypaths.empty() ? "None" : json(_fft_keypaths).dump()},
         {"Trace Keypaths",
          _trace_keypaths.empty() ? "None" : json(_trace_keypaths).dump()},
+        {"Reference frame keypaths",
+         _hmat_keypaths.empty() ? "None" : json(_hmat_keypaths).dump()},
+        {"Reference frame axis length", std::to_string(_h_scale)},
         {"Keypaths", _keypaths.empty() ? "None" : json(_keypaths).dump()},
         {"Skeleton field", _params["skeleton"].get<std::string>()},
         {"3D Scale", std::to_string(_params["3D_scale"].get<double>())},
