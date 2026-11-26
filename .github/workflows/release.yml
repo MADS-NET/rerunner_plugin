@@ -56,7 +56,7 @@ jobs:
 
           - name: macOS arm64
             id: macos-arm64
-            runner: macos-14
+            runner: macos-latest
             generator: Ninja
             platform: ""
             osx_architectures: ""
